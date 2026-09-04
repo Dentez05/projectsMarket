@@ -1,4 +1,5 @@
-﻿using Store.API.Models.DTOs;
+﻿using System.Text.Json;
+using Store.API.Models.DTOs;
 using Store.API.Models.Entities;
 using Store.API.Repositories;
 
@@ -36,10 +37,16 @@ namespace Store.API.Services
             {
                 Title = request.Title,
                 Description = request.Description,
+                FullDescription = request.FullDescription,
                 Price = request.Price,
                 CreatedByUserId = createdByUserId,
                 CategoryId = request.CategoryId,
-                Status = "Draft",
+                Status = "Active",
+                Images = JsonSerializer.Serialize(request.Images),
+                Technologies = JsonSerializer.Serialize(request.Technologies),
+                Demo = request.Demo,
+                IsNew = request.IsNew,
+                Popular = request.Popular,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -63,8 +70,11 @@ namespace Store.API.Services
             if (!string.IsNullOrWhiteSpace(request.Title))
                 project.Title = request.Title;
 
-            if (!string.IsNullOrWhiteSpace(request.Description))
+            if (request.Description != null)
                 project.Description = request.Description;
+
+            if (request.FullDescription != null)
+                project.FullDescription = request.FullDescription;
 
             if (request.Price.HasValue)
                 project.Price = request.Price.Value;
@@ -74,6 +84,21 @@ namespace Store.API.Services
 
             if (!string.IsNullOrWhiteSpace(request.Status))
                 project.Status = request.Status;
+
+            if (request.Images != null)
+                project.Images = JsonSerializer.Serialize(request.Images);
+
+            if (request.Technologies != null)
+                project.Technologies = JsonSerializer.Serialize(request.Technologies);
+
+            if (request.Demo != null)
+                project.Demo = request.Demo;
+
+            if (request.IsNew.HasValue)
+                project.IsNew = request.IsNew.Value;
+
+            if (request.Popular.HasValue)
+                project.Popular = request.Popular.Value;
 
             project.UpdatedAt = DateTime.UtcNow;
 
@@ -109,13 +134,19 @@ namespace Store.API.Services
                 Id = project.Id,
                 Title = project.Title,
                 Description = project.Description,
+                FullDescription = project.FullDescription,
                 Price = project.Price,
                 CreatedByUserId = project.CreatedByUserId,
                 Status = project.Status,
                 CreatedAt = project.CreatedAt,
                 UpdatedAt = project.UpdatedAt,
                 CategoryId = project.CategoryId,
-                CategoryName = project.Category?.Name ?? string.Empty
+                CategoryName = project.Category?.Name ?? string.Empty,
+                Images = JsonSerializer.Deserialize<List<string>>(project.Images) ?? new(),
+                Technologies = JsonSerializer.Deserialize<List<string>>(project.Technologies) ?? new(),
+                Demo = project.Demo,
+                IsNew = project.IsNew,
+                Popular = project.Popular
             };
         }
     }

@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
 
 namespace Store.API.Models.Entities
@@ -18,8 +17,10 @@ namespace Store.API.Models.Entities
         [Required]
         public string Description { get; set; } = null!;
 
+        public string FullDescription { get; set; } = string.Empty;
+
         [Required]
-        [Column(TypeName  = "decimal(10,2)")]
+        [Column(TypeName = "decimal(10,2)")]
         public decimal Price { get; set; }
 
         [Required]
@@ -35,8 +36,18 @@ namespace Store.API.Models.Entities
         public int? CategoryId { get; set; }
         public Category Category { get; set; } = null!;
 
-        public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
+        [Column(TypeName = "jsonb")]
+        public string Images { get; set; } = "[]";
 
+        [Column(TypeName = "jsonb")]
+        public string Technologies { get; set; } = "[]";
+
+        public string? Demo { get; set; }
+
+        public bool IsNew { get; set; } = false;
+        public bool Popular { get; set; } = false;
+
+        public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
         public ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
     }
 }
