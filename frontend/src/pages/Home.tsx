@@ -3,13 +3,6 @@ import { ArrowRight, Shield, Zap, HeadphonesIcon, Star } from 'lucide-react';
 import { projects } from '../data/projects';
 import ProjectCard from '../components/ProjectCard';
 
-const STATS = [
-  { value: '120+', label: 'Готовых проектов' },
-  { value: '850+', label: 'Довольных клиентов' },
-  { value: '4.9', label: 'Рейтинг' },
-  { value: '48ч', label: 'Поддержка' },
-];
-
 const FEATURES = [
   {
     icon: <Zap size={22} className="text-blue-600" />,
@@ -40,13 +33,9 @@ export default function Home() {
   return (
     <div>
       {/* Hero */}
-      <section className="hero-gradient py-20 lg:py-32">
+      <section className="hero-gradient py-24 lg:py-36">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-full text-blue-700 text-sm font-medium mb-6">
-              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-              Новые проекты каждую неделю
-            </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight mb-6">
               Готовые IT-проекты<br />
               <span className="gradient-text">для вашего бизнеса</span>
@@ -62,20 +51,6 @@ export default function Home() {
                 Как это работает
               </a>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="py-10 bg-white border-y border-slate-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {STATS.map(s => (
-              <div key={s.label} className="text-center">
-                <div className="text-3xl font-bold gradient-text mb-1">{s.value}</div>
-                <div className="text-sm text-slate-500">{s.label}</div>
-              </div>
-            ))}
           </div>
         </div>
       </section>
