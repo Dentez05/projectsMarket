@@ -13,7 +13,7 @@ import Admin from './pages/Admin';
 
 function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-[#1a1f2e]">
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
