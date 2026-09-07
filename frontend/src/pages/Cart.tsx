@@ -1,16 +1,33 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, ShoppingBag, Send, MessageCircle, ArrowRight } from 'lucide-react';
 import { useApp } from '../store/AppContext';
+import { useToast } from '../hooks/useToast';
+import ToastContainer from '../components/ui/Toast';
 
 export default function Cart() {
   const { cart, removeFromCart, checkout, user } = useApp();
   const navigate = useNavigate();
+  const { toasts, addToast, removeToast } = useToast();
+  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const total = cart.reduce((sum, i) => sum + i.project.price, 0);
 
   const handleCheckout = () => {
     if (!user) { navigate('/login'); return; }
     checkout();
-    navigate('/profile');
+    addToast('Заказ оформлен! Перейдите в личный кабинет.', 'success');
+    setTimeout(() => navigate('/profile'), 1000);
+  };
+
+  const handleRemove = (id: number) => {
+    if (confirmDelete === id) {
+      removeFromCart(id);
+      setConfirmDelete(null);
+      addToast('Проект удалён из корзины', 'info');
+    } else {
+      setConfirmDelete(id);
+      setTimeout(() => setConfirmDelete(null), 3000);
+    }
   };
 
   if (cart.length === 0) {
@@ -28,6 +45,7 @@ export default function Cart() {
             </Link>
           </div>
         </div>
+        <ToastContainer toasts={toasts} onRemove={removeToast} />
       </div>
     );
   }
@@ -44,14 +62,22 @@ export default function Cart() {
           <div className="lg:col-span-2 space-y-3 sm:space-y-4">
             {cart.map(({ project }) => (
               <div key={project.id} className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] p-3.5 sm:p-4 flex gap-3 sm:gap-4 items-start">
-                <img src={project.image} alt={project.title} className="w-16 h-12 sm:w-20 sm:h-16 rounded-lg sm:xl object-cover flex-shrink-0" />
+                <img src={project.image} alt={project.title} loading="lazy" className="w-16 h-12 sm:w-20 sm:h-16 rounded-lg object-cover flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <Link to={`/projects/${project.id}`} className="font-semibold text-white hover:text-[#f97316] transition-colors line-clamp-1 text-sm sm:text-base">{project.title}</Link>
                       <p className="text-[10px] sm:text-xs text-white/40 mt-0.5">{project.category}</p>
                     </div>
-                    <button onClick={() => removeFromCart(project.id)} className="p-1 sm:p-1.5 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors flex-shrink-0">
+                    <button
+                      onClick={() => handleRemove(project.id)}
+                      className={`p-1 sm:p-1.5 rounded-lg transition-colors flex-shrink-0 ${
+                        confirmDelete === project.id
+                          ? 'text-red-400 bg-red-500/10 animate-pulse'
+                          : 'text-white/30 hover:text-red-400 hover:bg-red-500/10'
+                      }`}
+                      title={confirmDelete === project.id ? 'Нажмите ещё раз для удаления' : 'Удалить'}
+                    >
                       <Trash2 size={14} className="sm:w-[15px] sm:h-[15px]" />
                     </button>
                   </div>
@@ -100,6 +126,7 @@ export default function Cart() {
           </div>
         </div>
       </div>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }

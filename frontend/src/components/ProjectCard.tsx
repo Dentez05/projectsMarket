@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Eye, Check, X, ZoomIn } from 'lucide-react';
 import { useApp } from '../store/AppContext';
@@ -13,6 +13,18 @@ export default function ProjectCard({ project }: Props) {
   const inCart = isInCart(project.id);
   const [lightbox, setLightbox] = useState(false);
   const navigate = useNavigate();
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ x: y * -8, y: x * 8 });
+  };
+
+  const handleMouseLeave = () => setTilt({ x: 0, y: 0 });
 
   return (
     <>
@@ -31,12 +43,18 @@ export default function ProjectCard({ project }: Props) {
         </div>
       )}
 
-      <div className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] overflow-hidden card-hover group">
+      <div
+        ref={cardRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] overflow-hidden card-hover group"
+        style={{ transform: `perspective(800px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`, transition: 'transform 0.15s ease-out' }}
+      >
         <div className="relative overflow-hidden h-40 sm:h-44 lg:h-48 cursor-zoom-in" onClick={() => setLightbox(true)}>
-          <img src={project.image} alt={project.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="bg-[#f97316]/80 backdrop-blur-sm rounded-full p-2 sm:p-2.5">
+          <img src={project.image} alt={project.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <div className="bg-[#f97316]/90 backdrop-blur-sm rounded-full p-2.5 sm:p-3 scale-75 group-hover:scale-100 transition-transform duration-300">
               <ZoomIn size={18} className="text-white drop-shadow sm:w-5 sm:h-5" />
             </div>
           </div>

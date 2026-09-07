@@ -3,8 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ProjectMarket</title>
+    <title>ProjectMarket — Маркетплейс готовых IT-проектов</title>
+    <meta name="description" content="Покупайте готовые IT-проекты: e-commerce, CRM, дашборды, мобильные приложения. Запускайте бизнес быстрее с проверенными решениями." />
+    <meta name="keywords" content="IT проекты, маркетплейс, e-commerce, CRM, дашборд, купить проект, готовые решения" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="ProjectMarket — Маркетплейс готовых IT-проектов" />
+    <meta property="og:description" content="Покупайте готовые IT-проекты и запускайте бизнес быстрее. E-commerce, CRM, дашборды, мобильные приложения." />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:locale" content="ru_RU" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ProjectMarket — Маркетплейс готовых IT-проектов" />
+    <meta name="twitter:description" content="Покупайте готовые IT-проекты и запускайте бизнес быстрее." />
+
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "ProjectMarket",
+      "url": "https://projectmarket.ru",
+      "description": "Маркетплейс готовых IT-проектов",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://projectmarket.ru/projects?search={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>
