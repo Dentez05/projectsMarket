@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Shield, Zap, HeadphonesIcon, Star, ShoppingCart, ChevronRight } from 'lucide-react';
+import { ArrowRight, Shield, Zap, HeadphonesIcon, Star, ShoppingCart, ChevronRight, Eye, CreditCard, Download, Rocket } from 'lucide-react';
 import { projects } from '../data/projects';
 import ProjectCard from '../components/ProjectCard';
 import ScrollReveal from '../components/ui/ScrollReveal';
@@ -49,7 +49,7 @@ export default function Home() {
                 <Link to="/projects" className="btn-primary inline-flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 text-sm sm:text-base rounded-xl">
                   Смотреть проекты <ArrowRight size={16} className="sm:w-[18px] sm:h-[18px]" />
                 </Link>
-                <a href="#features" className="btn-outline inline-flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 text-sm sm:text-base rounded-xl">
+                <a href="#how-it-works" className="btn-outline inline-flex items-center gap-2 px-5 sm:px-7 py-3 sm:py-3.5 text-sm sm:text-base rounded-xl">
                   Как это работает
                 </a>
               </div>
@@ -114,6 +114,81 @@ export default function Home() {
               </ScrollReveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section id="how-it-works" className="py-10 sm:py-16 lg:py-20 section-surface relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/4 w-[300px] h-[300px] bg-[#f97316]/3 rounded-full blur-[80px]" />
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <ScrollReveal>
+            <div className="text-center mb-10 sm:mb-14">
+              <p className="text-[#f97316] font-semibold text-xs sm:text-sm mb-1.5 sm:mb-2 uppercase tracking-wide">Как это работает</p>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight">Четыре шага до вашего проекта</h2>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 relative">
+            {/* Connecting line (desktop) */}
+            <div className="hidden lg:block absolute top-12 left-[12%] right-[12%] h-px bg-gradient-to-r from-transparent via-[#f97316]/20 to-transparent" />
+
+            {[
+              {
+                step: '01',
+                icon: <Eye size={24} className="text-[#f97316]" />,
+                title: 'Выберите проект',
+                desc: 'Просмотрите каталог и найдите подходящее решение. Ознакомьтесь с демо-версией, изучите описание и технологии.',
+              },
+              {
+                step: '02',
+                icon: <CreditCard size={24} className="text-[#f97316]" />,
+                title: 'Оформите покупку',
+                desc: 'Добавьте проект в корзину и оплатите. После подтверждения оплаты полная версия станет доступна мгновенно.',
+              },
+              {
+                step: '03',
+                icon: <Download size={24} className="text-[#f97316]" />,
+                title: 'Скачайте материалы',
+                desc: 'Получите полный исходный код, документацию и инструкции по настройке. Все файлы доступны в личном кабинете.',
+              },
+              {
+                step: '04',
+                icon: <Rocket size={24} className="text-[#f97316]" />,
+                title: 'Запустите проект',
+                desc: 'Разверните проект на своём сервере или хостинге. При необходимости обратитесь в поддержку — мы поможем с настройкой.',
+              },
+            ].map((item, i) => (
+              <ScrollReveal key={item.step} delay={i * 100}>
+                <div className="relative text-center group">
+                  {/* Step number circle */}
+                  <div className="relative mx-auto w-20 h-20 sm:w-24 sm:h-24 mb-5 sm:mb-6">
+                    <div className="absolute inset-0 rounded-2xl bg-[#232a3b] border border-[#2e3548] group-hover:border-[#f97316]/30 transition-colors duration-300 rotate-45" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      {item.icon}
+                    </div>
+                    <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-[#f97316] text-white text-xs font-bold flex items-center justify-center shadow-lg shadow-[#f97316]/30">
+                      {item.step}
+                    </span>
+                  </div>
+                  <h3 className="font-semibold text-white text-sm sm:text-base mb-2">{item.title}</h3>
+                  <p className="text-xs sm:text-sm text-white/40 leading-relaxed max-w-[250px] mx-auto">{item.desc}</p>
+                </div>
+              </ScrollReveal>
+            ))}
+          </div>
+
+          <ScrollReveal delay={400}>
+            <div className="mt-10 sm:mt-14 text-center">
+              <div className="inline-flex items-center gap-3 px-5 sm:px-6 py-3 sm:py-3.5 bg-[#232a3b] border border-[#2e3548] rounded-xl sm:rounded-2xl">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <p className="text-xs sm:text-sm text-white/50">
+                  Демо-версия доступна <span className="text-white/80 font-medium">бесплатно</span> — попробуйте перед покупкой
+                </p>
+              </div>
+            </div>
+          </ScrollReveal>
         </div>
       </section>
 
