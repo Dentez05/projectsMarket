@@ -1,13 +1,14 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Search, SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { projects, CATEGORIES } from '../data/projects';
+import { useApp } from '../store/AppContext';
 import ProjectCard from '../components/ProjectCard';
 import SkeletonCard from '../components/ui/SkeletonCard';
 import ScrollReveal from '../components/ui/ScrollReveal';
 import { useDebounce } from '../hooks/useDebounce';
 
 const PAGE_SIZE = 6;
+const CATEGORIES = ['Все', 'E-commerce', 'Dashboard', 'CRM', 'Мобильное', 'API', 'Чат-бот', 'Аналитика'];
 
 type SortOption = 'popular' | 'price-asc' | 'price-desc' | 'newest';
 
@@ -19,6 +20,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ];
 
 export default function Projects() {
+  const { projects, projectsLoaded } = useApp();
   const [searchParams] = useSearchParams();
   const initialCat = searchParams.get('category') || 'Все';
   const [search, setSearch] = useState('');
@@ -34,7 +36,7 @@ export default function Projects() {
   const filtered = useMemo(() => {
     let result = projects.filter(p => {
       const matchSearch = !debouncedSearch || p.title.toLowerCase().includes(debouncedSearch.toLowerCase()) || p.description.toLowerCase().includes(debouncedSearch.toLowerCase());
-      const matchCat = category === 'Все' || p.category === category;
+      const matchCat = category === 'Все' || p.categoryName === category;
       const matchMin = !priceMin || p.price >= Number(priceMin);
       const matchMax = !priceMax || p.price <= Number(priceMax);
       return matchSearch && matchCat && matchMin && matchMax;
@@ -48,7 +50,7 @@ export default function Projects() {
     }
 
     return result;
-  }, [debouncedSearch, category, priceMin, priceMax, sort]);
+  }, [debouncedSearch, category, priceMin, priceMax, sort, projects]);
 
   const visible = filtered.slice(0, showCount);
   const hasMore = showCount < filtered.length;
@@ -131,7 +133,11 @@ export default function Projects() {
           ))}
         </div>
 
-        {visible.length > 0 ? (
+        {!projectsLoaded ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : visible.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
               {visible.map((p, i) => (

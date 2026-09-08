@@ -2,10 +2,10 @@ import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Eye, Check, X, ZoomIn } from 'lucide-react';
 import { useApp } from '../store/AppContext';
-import type { Project } from '../data/projects';
+import type { ApiProject } from '../api/types';
 
 interface Props {
-  project: Project;
+  project: ApiProject;
 }
 
 export default function ProjectCard({ project }: Props) {
@@ -15,6 +15,8 @@ export default function ProjectCard({ project }: Props) {
   const navigate = useNavigate();
   const cardRef = useRef<HTMLDivElement>(null);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
+
+  const image = project.images?.[0] || '';
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!cardRef.current) return;
@@ -31,10 +33,10 @@ export default function ProjectCard({ project }: Props) {
       {lightbox && (
         <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4" onClick={() => setLightbox(false)}>
           <div className="relative max-w-3xl w-full rounded-xl sm:rounded-2xl overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-            <img src={project.image} alt={project.title} className="w-full object-cover" />
+            <img src={image} alt={project.title} className="w-full object-cover" />
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-4 sm:px-5 py-3 sm:py-4">
               <p className="text-white font-semibold text-sm sm:text-base">{project.title}</p>
-              <p className="text-white/70 text-xs sm:text-sm">{project.category} · {project.price.toLocaleString('ru-RU')} ₽</p>
+              <p className="text-white/70 text-xs sm:text-sm">{project.categoryName} · {project.price.toLocaleString('ru-RU')} ₽</p>
             </div>
             <button onClick={() => setLightbox(false)} className="absolute top-2 right-2 sm:top-3 sm:right-3 w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center transition-colors">
               <X size={14} className="sm:w-4 sm:h-4" />
@@ -51,7 +53,7 @@ export default function ProjectCard({ project }: Props) {
         style={{ transform: `perspective(800px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`, transition: 'transform 0.15s ease-out' }}
       >
         <div className="relative overflow-hidden h-40 sm:h-44 lg:h-48 cursor-zoom-in" onClick={() => setLightbox(true)}>
-          <img src={project.image} alt={project.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+          <img src={image} alt={project.title} loading="lazy" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <div className="bg-[#f97316]/90 backdrop-blur-sm rounded-full p-2.5 sm:p-3 scale-75 group-hover:scale-100 transition-transform duration-300">
@@ -67,9 +69,9 @@ export default function ProjectCard({ project }: Props) {
             )}
           </div>
           <span className="group/cat absolute top-2 right-2 sm:top-3 sm:right-3 px-1.5 sm:px-2 py-0.5 bg-[#232a3b]/90 text-white/80 text-[9px] sm:text-[10px] font-medium rounded-full max-w-[50px] sm:max-w-[56px] truncate cursor-default border border-[#2e3548]">
-            {project.category}
+            {project.categoryName}
             <span className="pointer-events-none absolute bottom-full right-0 mb-2 z-50 opacity-0 group-hover/cat:opacity-100 translate-y-1 group-hover/cat:translate-y-0 transition-all duration-150 bg-[#2a3244] text-white text-[11px] font-medium rounded-lg shadow-xl px-3 py-1.5 whitespace-nowrap border border-[#2e3548]">
-              {project.category}
+              {project.categoryName}
               <span className="absolute top-full right-3 border-4 border-transparent border-t-[#2a3244]" />
             </span>
           </span>

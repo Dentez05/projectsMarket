@@ -12,16 +12,14 @@ export default function Login() {
   const { login } = useApp();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    setTimeout(() => {
-      const ok = login(email, password);
-      if (ok) navigate('/profile');
-      else setError('Неверный email или пароль');
-      setLoading(false);
-    }, 600);
+    const ok = await login(email, password);
+    if (ok) navigate('/profile');
+    else setError('Неверный email или пароль');
+    setLoading(false);
   };
 
   return (
@@ -68,9 +66,6 @@ export default function Login() {
                 <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
                   {showPw ? <EyeOff size={14} className="sm:w-[15px] sm:h-[15px]" /> : <Eye size={14} className="sm:w-[15px] sm:h-[15px]" />}
                 </button>
-              </div>
-              <div className="flex justify-end mt-1 sm:mt-1.5">
-                <a href="#" className="text-[10px] sm:text-xs text-[#f97316] hover:underline">Забыли пароль?</a>
               </div>
             </div>
             {error && <p className="text-xs sm:text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}

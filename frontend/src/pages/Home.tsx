@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Shield, Zap, HeadphonesIcon, Star, ShoppingCart, ChevronRight, Eye, CreditCard, Download, Rocket } from 'lucide-react';
-import { projects } from '../data/projects';
+import { useApp } from '../store/AppContext';
 import ProjectCard from '../components/ProjectCard';
 import ScrollReveal from '../components/ui/ScrollReveal';
 
@@ -19,6 +19,7 @@ const SERVICE_CARDS = [
 ];
 
 export default function Home() {
+  const { projects } = useApp();
   const popular = projects.filter(p => p.popular).slice(0, 4);
   const newest = projects.filter(p => p.isNew).slice(0, 4);
 
@@ -131,46 +132,20 @@ export default function Home() {
           </ScrollReveal>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 relative">
-            {/* Connecting line (desktop) */}
             <div className="hidden lg:block absolute top-12 left-[12%] right-[12%] h-px bg-gradient-to-r from-transparent via-[#f97316]/20 to-transparent" />
 
             {[
-              {
-                step: '01',
-                icon: <Eye size={24} className="text-[#f97316]" />,
-                title: 'Выберите проект',
-                desc: 'Просмотрите каталог и найдите подходящее решение. Ознакомьтесь с демо-версией, изучите описание и технологии.',
-              },
-              {
-                step: '02',
-                icon: <CreditCard size={24} className="text-[#f97316]" />,
-                title: 'Оформите покупку',
-                desc: 'Добавьте проект в корзину и оплатите. После подтверждения оплаты полная версия станет доступна мгновенно.',
-              },
-              {
-                step: '03',
-                icon: <Download size={24} className="text-[#f97316]" />,
-                title: 'Скачайте материалы',
-                desc: 'Получите полный исходный код, документацию и инструкции по настройке. Все файлы доступны в личном кабинете.',
-              },
-              {
-                step: '04',
-                icon: <Rocket size={24} className="text-[#f97316]" />,
-                title: 'Запустите проект',
-                desc: 'Разверните проект на своём сервере или хостинге. При необходимости обратитесь в поддержку — мы поможем с настройкой.',
-              },
+              { step: '01', icon: <Eye size={24} className="text-[#f97316]" />, title: 'Выберите проект', desc: 'Просмотрите каталог и найдите подходящее решение. Ознакомьтесь с демо-версией, изучите описание и технологии.' },
+              { step: '02', icon: <CreditCard size={24} className="text-[#f97316]" />, title: 'Оформите покупку', desc: 'Добавьте проект в корзину и оплатите. После подтверждения оплаты полная версия станет доступна мгновенно.' },
+              { step: '03', icon: <Download size={24} className="text-[#f97316]" />, title: 'Скачайте материалы', desc: 'Получите полный исходный код, документацию и инструкции по настройке. Все файлы доступны в личном кабинете.' },
+              { step: '04', icon: <Rocket size={24} className="text-[#f97316]" />, title: 'Запустите проект', desc: 'Разверните проект на своём сервере или хостинге. При необходимости обратитесь в поддержку — мы поможем с настройкой.' },
             ].map((item, i) => (
               <ScrollReveal key={item.step} delay={i * 100}>
                 <div className="relative text-center group">
-                  {/* Step number circle */}
                   <div className="relative mx-auto w-20 h-20 sm:w-24 sm:h-24 mb-5 sm:mb-6">
                     <div className="absolute inset-0 rounded-2xl bg-[#232a3b] border border-[#2e3548] group-hover:border-[#f97316]/30 transition-colors duration-300 rotate-45" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      {item.icon}
-                    </div>
-                    <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-[#f97316] text-white text-xs font-bold flex items-center justify-center shadow-lg shadow-[#f97316]/30">
-                      {item.step}
-                    </span>
+                    <div className="absolute inset-0 flex items-center justify-center">{item.icon}</div>
+                    <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-[#f97316] text-white text-xs font-bold flex items-center justify-center shadow-lg shadow-[#f97316]/30">{item.step}</span>
                   </div>
                   <h3 className="font-semibold text-white text-sm sm:text-base mb-2">{item.title}</h3>
                   <p className="text-xs sm:text-sm text-white/40 leading-relaxed max-w-[250px] mx-auto">{item.desc}</p>

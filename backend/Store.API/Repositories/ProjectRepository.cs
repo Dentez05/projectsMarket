@@ -29,6 +29,7 @@ namespace Store.API.Repositories
         public async Task<List<Project>> GetAllAsync()
         {
             return await _context.Projects
+                .Include(p => p.Category)
                 .ToListAsync();
         }
 

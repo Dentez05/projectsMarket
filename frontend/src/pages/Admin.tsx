@@ -1,20 +1,62 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Pencil, Trash2, X, ArrowLeft } from 'lucide-react';
-import { projects as mockProjects, CATEGORIES, type Project } from '../data/projects';
+import { useApp } from '../store/AppContext';
+import { projectsApi } from '../api/projects';
+import { categoriesApi } from '../api/categories';
+import type { ApiProject, ApiCategory } from '../api/types';
 
 type View = 'list' | 'create' | 'edit';
 
+const CATEGORIES = ['E-commerce', 'Dashboard', 'CRM', 'Мобильное', 'API', 'Чат-бот', 'Аналитика'];
+
 export default function Admin() {
+  const { projects, projectsLoaded } = useApp();
   const [view, setView] = useState<View>('list');
-  const [projectList, setProjectList] = useState<Project[]>(mockProjects);
   const [filterCategory, setFilterCategory] = useState('Все');
+  const [projectList, setProjectList] = useState<ApiProject[]>([]);
+  const [editingProject, setEditingProject] = useState<ApiProject | null>(null);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
 
-  const filtered = filterCategory === 'Все' ? projectList : projectList.filter(p => p.category === filterCategory);
+  useEffect(() => {
+    setProjectList(projects);
+  }, [projects]);
 
-  const handleDelete = (id: number) => { if (confirm('Удалить проект?')) setProjectList(prev => prev.filter(p => p.id !== id)); };
+  useEffect(() => {
+    categoriesApi.getAll().then(setCategories).catch(() => {});
+  }, []);
 
-  if (view === 'create' || view === 'edit') {
-    return <ProjectForm onBack={() => setView('list')} />;
+  const filtered = filterCategory === 'Все' ? projectList : projectList.filter(p => p.categoryName === filterCategory);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Удалить проект?')) return;
+    try {
+      await projectsApi.delete(id);
+      setProjectList(prev => prev.filter(p => p.id !== id));
+    } catch {}
+  };
+
+  const handleEdit = (project: ApiProject) => {
+    setEditingProject(project);
+    setView('edit');
+  };
+
+  const handleCreated = (project: ApiProject) => {
+    setProjectList(prev => [project, ...prev]);
+    setView('list');
+  };
+
+  const handleUpdated = (project: ApiProject) => {
+    setProjectList(prev => prev.map(p => p.id === project.id ? project : p));
+    setView('list');
+    setEditingProject(null);
+  };
+
+  if (view === 'create') {
+    return <ProjectForm onBack={() => setView('list')} onCreated={handleCreated} categories={categories} />;
+  }
+
+  if (view === 'edit' && editingProject) {
+    return <ProjectForm onBack={() => { setView('list'); setEditingProject(null); }} onCreated={handleUpdated} categories={categories} project={editingProject} />;
   }
 
   return (
@@ -31,6 +73,8 @@ export default function Admin() {
       </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 mb-5 sm:mb-6 scrollbar-hide">
+          <button onClick={() => setFilterCategory('Все')}
+            className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterCategory === 'Все' ? 'bg-[#f97316] text-white' : 'bg-[#232a3b] border border-[#2e3548] text-white/60 hover:border-[#f97316]/30'}`}>Все</button>
           {CATEGORIES.map(cat => (
             <button key={cat} onClick={() => setFilterCategory(cat)}
               className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterCategory === cat ? 'bg-[#f97316] text-white' : 'bg-[#232a3b] border border-[#2e3548] text-white/60 hover:border-[#f97316]/30'}`}>{cat}</button>
@@ -55,7 +99,7 @@ export default function Admin() {
                   <td className="px-5 lg:px-6 py-3.5 text-sm text-white/40">#{p.id}</td>
                   <td className="px-5 lg:px-6 py-3.5">
                     <div className="flex items-center gap-2.5 sm:gap-3">
-                      <img src={p.image} alt="" className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-cover flex-shrink-0" />
+                      <img src={p.images?.[0] || ''} alt="" className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-cover flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-white truncate">{p.title}</p>
                         <div className="flex gap-1 mt-0.5">
@@ -65,11 +109,11 @@ export default function Admin() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 lg:px-6 py-3.5 text-sm text-white/50 hidden md:table-cell">{p.category}</td>
+                  <td className="px-5 lg:px-6 py-3.5 text-sm text-white/50 hidden md:table-cell">{p.categoryName}</td>
                   <td className="px-5 lg:px-6 py-3.5 text-sm font-semibold text-white">{p.price.toLocaleString('ru-RU')} &#8381;</td>
                   <td className="px-5 lg:px-6 py-3.5">
                     <div className="flex justify-end gap-1.5 sm:gap-2">
-                      <button className="p-1.5 sm:p-2 rounded-lg text-white/40 hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"><Pencil size={14} className="sm:w-[15px] sm:h-[15px]" /></button>
+                      <button onClick={() => handleEdit(p)} className="p-1.5 sm:p-2 rounded-lg text-white/40 hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"><Pencil size={14} className="sm:w-[15px] sm:h-[15px]" /></button>
                       <button onClick={() => handleDelete(p.id)} className="p-1.5 sm:p-2 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={14} className="sm:w-[15px] sm:h-[15px]" /></button>
                     </div>
                   </td>
@@ -83,18 +127,18 @@ export default function Admin() {
         <div className="sm:hidden space-y-2.5">
           {filtered.map(p => (
             <div key={p.id} className="bg-[#232a3b] rounded-xl border border-[#2e3548] p-3.5 flex items-center gap-3">
-              <img src={p.image} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
+              <img src={p.images?.[0] || ''} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">{p.title}</p>
                 <div className="flex gap-1 mt-0.5 flex-wrap">
-                  <span className="text-[10px] text-white/40 bg-white/5 px-1.5 py-0.5 rounded">{p.category}</span>
+                  <span className="text-[10px] text-white/40 bg-white/5 px-1.5 py-0.5 rounded">{p.categoryName}</span>
                   {p.isNew && <span className="text-[10px] bg-[#f97316]/10 text-[#f97316] px-1.5 py-0.5 rounded font-medium">Новый</span>}
                   {p.popular && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-medium">Популярный</span>}
                 </div>
                 <p className="font-semibold text-white text-sm mt-1">{p.price.toLocaleString('ru-RU')} &#8381;</p>
               </div>
               <div className="flex flex-col gap-1 flex-shrink-0">
-                <button className="p-1.5 rounded-lg text-white/40 hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"><Pencil size={14} /></button>
+                <button onClick={() => handleEdit(p)} className="p-1.5 rounded-lg text-white/40 hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"><Pencil size={14} /></button>
                 <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={14} /></button>
               </div>
             </div>
@@ -105,26 +149,55 @@ export default function Admin() {
   );
 }
 
-function ProjectForm({ onBack }: { onBack: () => void }) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [fullDescription, setFullDescription] = useState('');
-  const [price, setPrice] = useState(0);
-  const [category, setCategory] = useState('E-commerce');
-  const [technologies, setTechnologies] = useState<string[]>([]);
+interface ProjectFormProps {
+  onBack: () => void;
+  onCreated: (project: ApiProject) => void;
+  categories: ApiCategory[];
+  project?: ApiProject;
+}
+
+function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProps) {
+  const [title, setTitle] = useState(project?.title || '');
+  const [description, setDescription] = useState(project?.description || '');
+  const [fullDescription, setFullDescription] = useState(project?.fullDescription || '');
+  const [price, setPrice] = useState(project?.price || 0);
+  const [categoryId, setCategoryId] = useState<number | null>(project?.categoryId || null);
+  const [technologies, setTechnologies] = useState<string[]>(project?.technologies || []);
   const [techInput, setTechInput] = useState('');
-  const [demo, setDemo] = useState('');
-  const [images, setImages] = useState<string[]>([]);
+  const [demo, setDemo] = useState(project?.demo || '');
+  const [images, setImages] = useState<string[]>(project?.images || []);
   const [imageInput, setImageInput] = useState('');
-  const [isNew, setIsNew] = useState(false);
-  const [popular, setPopular] = useState(false);
+  const [isNew, setIsNew] = useState(project?.isNew || false);
+  const [popular, setPopular] = useState(project?.popular || false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const addTechnology = () => { if (techInput.trim() && !technologies.includes(techInput.trim())) { setTechnologies([...technologies, techInput.trim()]); setTechInput(''); } };
   const removeTechnology = (tech: string) => setTechnologies(technologies.filter(t => t !== tech));
   const addImage = () => { if (imageInput.trim() && !images.includes(imageInput.trim())) { setImages([...images, imageInput.trim()]); setImageInput(''); } };
   const removeImage = (url: string) => setImages(images.filter(i => i !== url));
 
-  const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); alert('Проект создан!'); onBack(); };
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const data = {
+        title, description, fullDescription, price,
+        categoryId, images, technologies, demo, isNew, popular,
+      };
+      if (project) {
+        const updated = await projectsApi.update(project.id, data);
+        onCreated(updated);
+      } else {
+        const created = await projectsApi.create(data);
+        onCreated(created);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Ошибка сохранения');
+    }
+    setLoading(false);
+  };
 
   return (
     <div className="pt-14 sm:pt-20 lg:pt-24">
@@ -132,7 +205,7 @@ function ProjectForm({ onBack }: { onBack: () => void }) {
         <button onClick={onBack} className="flex items-center gap-1.5 sm:gap-2 text-white/40 hover:text-[#f97316] mb-5 sm:mb-6 text-xs sm:text-sm font-medium transition-colors">
           <ArrowLeft size={15} className="sm:w-4 sm:h-4" /> Назад к списку
         </button>
-        <h1 className="text-xl sm:text-2xl font-bold text-white mb-6 sm:mb-8">Новый проект</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-white mb-6 sm:mb-8">{project ? 'Редактировать проект' : 'Новый проект'}</h1>
         <form onSubmit={handleSubmit} className="bg-[#232a3b] rounded-xl border border-[#2e3548] p-4 sm:p-6 space-y-4 sm:space-y-6">
           <div>
             <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1">Название *</label>
@@ -157,9 +230,10 @@ function ProjectForm({ onBack }: { onBack: () => void }) {
             </div>
             <div>
               <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1">Категория</label>
-              <select value={category} onChange={e => setCategory(e.target.value)}
+              <select value={categoryId || ''} onChange={e => setCategoryId(e.target.value ? Number(e.target.value) : null)}
                 className="w-full px-3 py-2 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]">
-                {CATEGORIES.filter(c => c !== 'Все').map(c => <option key={c} value={c}>{c}</option>)}
+                <option value="">Не указана</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
           </div>
@@ -211,9 +285,13 @@ function ProjectForm({ onBack }: { onBack: () => void }) {
               <span className="text-xs sm:text-sm text-white/60">Популярный</span>
             </label>
           </div>
+          {error && <p className="text-xs sm:text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
           <div className="flex justify-end gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t border-[#2e3548]">
             <button type="button" onClick={onBack} className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white/50 hover:bg-white/5 rounded-lg transition-colors">Отмена</button>
-            <button type="submit" className="btn-primary px-5 sm:px-6 py-2 text-xs sm:text-sm rounded-lg">Создать проект</button>
+            <button type="submit" disabled={loading} className="btn-primary px-5 sm:px-6 py-2 text-xs sm:text-sm rounded-lg flex items-center gap-2">
+              {loading && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+              {project ? 'Сохранить' : 'Создать проект'}
+            </button>
           </div>
         </form>
       </div>

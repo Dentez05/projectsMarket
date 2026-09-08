@@ -10,18 +10,25 @@ export default function Cart() {
   const navigate = useNavigate();
   const { toasts, addToast, removeToast } = useToast();
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
-  const total = cart.reduce((sum, i) => sum + i.project.price, 0);
+  const [loading, setLoading] = useState(false);
+  const total = cart.reduce((sum, i) => sum + i.price, 0);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!user) { navigate('/login'); return; }
-    checkout();
-    addToast('Заказ оформлен! Перейдите в личный кабинет.', 'success');
-    setTimeout(() => navigate('/profile'), 1000);
+    setLoading(true);
+    const orderNumber = await checkout();
+    setLoading(false);
+    if (orderNumber) {
+      addToast(`Заказ ${orderNumber} оформлен! Перейдите в личный кабинет для оплаты.`, 'success');
+      setTimeout(() => navigate('/profile'), 1000);
+    } else {
+      addToast('Ошибка при оформлении заказа', 'error');
+    }
   };
 
-  const handleRemove = (id: number) => {
+  const handleRemove = async (id: number) => {
     if (confirmDelete === id) {
-      removeFromCart(id);
+      await removeFromCart(id);
       setConfirmDelete(null);
       addToast('Проект удалён из корзины', 'info');
     } else {
@@ -60,33 +67,27 @@ export default function Cart() {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
           <div className="lg:col-span-2 space-y-3 sm:space-y-4">
-            {cart.map(({ project }) => (
-              <div key={project.id} className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] p-3.5 sm:p-4 flex gap-3 sm:gap-4 items-start">
-                <img src={project.image} alt={project.title} loading="lazy" className="w-16 h-12 sm:w-20 sm:h-16 rounded-lg object-cover flex-shrink-0" />
+            {cart.map((item) => (
+              <div key={item.projectId} className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] p-3.5 sm:p-4 flex gap-3 sm:gap-4 items-start">
+                <img src={item.image} alt={item.title} loading="lazy" className="w-16 h-12 sm:w-20 sm:h-16 rounded-lg object-cover flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <Link to={`/projects/${project.id}`} className="font-semibold text-white hover:text-[#f97316] transition-colors line-clamp-1 text-sm sm:text-base">{project.title}</Link>
-                      <p className="text-[10px] sm:text-xs text-white/40 mt-0.5">{project.category}</p>
+                      <Link to={`/projects/${item.projectId}`} className="font-semibold text-white hover:text-[#f97316] transition-colors line-clamp-1 text-sm sm:text-base">{item.title}</Link>
                     </div>
                     <button
-                      onClick={() => handleRemove(project.id)}
+                      onClick={() => handleRemove(item.projectId)}
                       className={`p-1 sm:p-1.5 rounded-lg transition-colors flex-shrink-0 ${
-                        confirmDelete === project.id
+                        confirmDelete === item.projectId
                           ? 'text-red-400 bg-red-500/10 animate-pulse'
                           : 'text-white/30 hover:text-red-400 hover:bg-red-500/10'
                       }`}
-                      title={confirmDelete === project.id ? 'Нажмите ещё раз для удаления' : 'Удалить'}
+                      title={confirmDelete === item.projectId ? 'Нажмите ещё раз для удаления' : 'Удалить'}
                     >
                       <Trash2 size={14} className="sm:w-[15px] sm:h-[15px]" />
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-1 mt-1.5 sm:mt-2">
-                    {project.technologies.slice(0, 3).map(t => (
-                      <span key={t} className="px-1.5 sm:px-2 py-0.5 bg-[#f97316]/10 text-[#f97316] text-[10px] sm:text-xs rounded-md">{t}</span>
-                    ))}
-                  </div>
-                  <p className="text-base sm:text-lg font-bold text-white mt-1.5 sm:mt-2">{project.price.toLocaleString('ru-RU')} &#8381;</p>
+                  <p className="text-base sm:text-lg font-bold text-white mt-1.5 sm:mt-2">{item.price.toLocaleString('ru-RU')} &#8381;</p>
                 </div>
               </div>
             ))}
@@ -95,10 +96,10 @@ export default function Cart() {
             <div className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] p-5 sm:p-6 lg:sticky lg:top-24">
               <h3 className="font-semibold text-white mb-3 sm:mb-4 text-sm sm:text-base">Итого</h3>
               <div className="space-y-1.5 sm:space-y-2 mb-4 sm:mb-5 text-xs sm:text-sm text-white/50">
-                {cart.map(({ project }) => (
-                  <div key={project.id} className="flex justify-between">
-                    <span className="truncate max-w-[120px] sm:max-w-32">{project.title}</span>
-                    <span className="font-medium text-white/70 ml-2 flex-shrink-0">{project.price.toLocaleString('ru-RU')} &#8381;</span>
+                {cart.map((item) => (
+                  <div key={item.projectId} className="flex justify-between">
+                    <span className="truncate max-w-[120px] sm:max-w-32">{item.title}</span>
+                    <span className="font-medium text-white/70 ml-2 flex-shrink-0">{item.price.toLocaleString('ru-RU')} &#8381;</span>
                   </div>
                 ))}
               </div>
@@ -106,8 +107,9 @@ export default function Cart() {
                 <span className="font-semibold text-white text-sm sm:text-base">Итого</span>
                 <span className="text-lg sm:text-xl font-bold gradient-text">{total.toLocaleString('ru-RU')} &#8381;</span>
               </div>
-              <button onClick={handleCheckout} className="btn-primary w-full py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-xl text-sm sm:text-base">
-                Оформить заказ <ArrowRight size={15} className="sm:w-4 sm:h-4" />
+              <button onClick={handleCheckout} disabled={loading} className="btn-primary w-full py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-xl text-sm sm:text-base">
+                {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                {loading ? 'Оформляем...' : <><span>Оформить заказ</span> <ArrowRight size={15} className="sm:w-4 sm:h-4" /></>}
               </button>
               <div className="mt-5 sm:mt-6 pt-4 sm:pt-5 border-t border-[#2e3548]">
                 <p className="text-[10px] sm:text-xs font-semibold text-white/30 uppercase tracking-wide mb-2.5 sm:mb-3">Связаться с автором</p>

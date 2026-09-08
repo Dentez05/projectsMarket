@@ -8,14 +8,19 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useApp();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
     setLoading(true);
-    setTimeout(() => { register(name, email, password); navigate('/profile'); }, 700);
+    const ok = await register(name, email, password);
+    if (ok) navigate('/profile');
+    else setError('Ошибка регистрации. Попробуйте другой email.');
+    setLoading(false);
   };
 
   return (
@@ -63,6 +68,7 @@ export default function Register() {
                 </button>
               </div>
             </div>
+            {error && <p className="text-xs sm:text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
             <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-xl text-sm sm:text-base">
               {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
               {loading ? 'Регистрация...' : 'Зарегистрироваться'}

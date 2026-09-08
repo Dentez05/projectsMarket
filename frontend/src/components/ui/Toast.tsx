@@ -1,5 +1,5 @@
 import { X, CheckCircle, AlertCircle, Info } from 'lucide-react';
-import type { Toast } from '../hooks/useToast';
+import type { Toast } from '../../hooks/useToast';
 
 const icons = {
   success: <CheckCircle size={18} className="text-emerald-400" />,

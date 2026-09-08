@@ -142,12 +142,26 @@ namespace Store.API.Services
                 UpdatedAt = project.UpdatedAt,
                 CategoryId = project.CategoryId,
                 CategoryName = project.Category?.Name ?? string.Empty,
-                Images = JsonSerializer.Deserialize<List<string>>(project.Images) ?? new(),
-                Technologies = JsonSerializer.Deserialize<List<string>>(project.Technologies) ?? new(),
+                Images = SafeDeserializeList(project.Images),
+                Technologies = SafeDeserializeList(project.Technologies),
                 Demo = project.Demo,
                 IsNew = project.IsNew,
                 Popular = project.Popular
             };
+        }
+
+        private static List<string> SafeDeserializeList(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json) || json == "{}" || json == "null")
+                return new();
+            try
+            {
+                return JsonSerializer.Deserialize<List<string>>(json) ?? new();
+            }
+            catch
+            {
+                return new();
+            }
         }
     }
 }

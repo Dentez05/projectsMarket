@@ -1,16 +1,40 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, ExternalLink, Calendar, Tag, ChevronRight, Check, ArrowLeft } from 'lucide-react';
-import { projects } from '../data/projects';
 import { useApp } from '../store/AppContext';
+import { projectsApi } from '../api/projects';
+import type { ApiProject } from '../api/types';
 import ProjectCard from '../components/ProjectCard';
 
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart, isInCart } = useApp();
-  const project = projects.find(p => p.id === Number(id));
+  const { addToCart, isInCart, projects } = useApp();
+  const [project, setProject] = useState<ApiProject | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    projectsApi.getById(Number(id))
+      .then(setProject)
+      .catch(() => setProject(null))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="pt-14 sm:pt-20 lg:pt-24">
+        <div className="section-dark py-12 sm:py-16 lg:py-24">
+          <div className="max-w-7xl mx-auto px-4 text-center relative z-10">
+            <div className="w-8 h-8 border-2 border-[#f97316]/30 border-t-[#f97316] rounded-full animate-spin mx-auto" />
+            <p className="text-white/40 mt-3 text-sm">Загрузка...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!project) return (
     <div className="pt-14 sm:pt-20 lg:pt-24">
@@ -24,7 +48,7 @@ export default function ProjectDetail() {
   );
 
   const inCart = isInCart(project.id);
-  const similar = projects.filter(p => p.category === project.category && p.id !== project.id).slice(0, 3);
+  const similar = projects.filter(p => p.categoryName === project.categoryName && p.id !== project.id).slice(0, 3);
 
   return (
     <div className="pt-14 sm:pt-20 lg:pt-24">
@@ -47,9 +71,9 @@ export default function ProjectDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-10 mb-10 sm:mb-16">
           <div>
             <div className="rounded-xl sm:rounded-2xl overflow-hidden aspect-video bg-[#232a3b] mb-2.5 sm:mb-3">
-              <img src={project.images[activeImg]} alt={project.title} className="w-full h-full object-cover" />
+              <img src={project.images?.[activeImg] || ''} alt={project.title} className="w-full h-full object-cover" />
             </div>
-            {project.images.length > 1 && (
+            {project.images && project.images.length > 1 && (
               <div className="flex gap-2 sm:gap-3 overflow-x-auto scrollbar-hide pb-1">
                 {project.images.map((img, i) => (
                   <button key={i} onClick={() => setActiveImg(i)}
@@ -63,14 +87,14 @@ export default function ProjectDetail() {
 
           <div>
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2.5 sm:mb-3">
-              <span className="px-2 sm:px-2.5 py-0.5 sm:py-1 bg-[#f97316]/10 text-[#f97316] text-[10px] sm:text-xs font-semibold rounded-full">{project.category}</span>
+              <span className="px-2 sm:px-2.5 py-0.5 sm:py-1 bg-[#f97316]/10 text-[#f97316] text-[10px] sm:text-xs font-semibold rounded-full">{project.categoryName}</span>
               {project.isNew && <span className="px-2 sm:px-2.5 py-0.5 sm:py-1 bg-purple-500/10 text-purple-400 text-[10px] sm:text-xs font-semibold rounded-full">Новый</span>}
               {project.popular && <span className="px-2 sm:px-2.5 py-0.5 sm:py-1 bg-amber-500/10 text-amber-400 text-[10px] sm:text-xs font-semibold rounded-full">Популярный</span>}
             </div>
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight mb-2.5 sm:mb-3">{project.title}</h1>
             <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-white/40 mb-4 sm:mb-5">
               <span className="flex items-center gap-1 sm:gap-1.5"><Calendar size={13} className="sm:w-3.5 sm:h-3.5" /> {new Date(project.createdAt).toLocaleDateString('ru-RU')}</span>
-              <span className="flex items-center gap-1 sm:gap-1.5"><Tag size={13} className="sm:w-3.5 sm:h-3.5" /> {project.category}</span>
+              <span className="flex items-center gap-1 sm:gap-1.5"><Tag size={13} className="sm:w-3.5 sm:h-3.5" /> {project.categoryName}</span>
             </div>
             <p className="text-white/60 leading-relaxed mb-5 sm:mb-6 text-sm sm:text-base">{project.fullDescription}</p>
             <div className="mb-6 sm:mb-8">
@@ -93,13 +117,6 @@ export default function ProjectDetail() {
                     <ExternalLink size={16} className="sm:w-[18px] sm:h-[18px]" /> Попробовать демо
                   </a>
                 )}
-              </div>
-            </div>
-            <div className="mt-4 sm:mt-5 p-3.5 sm:p-4 bg-[#232a3b] border border-[#2e3548] rounded-xl flex items-center gap-2.5 sm:gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-[#f97316] to-[#ea580c] flex items-center justify-center text-white text-sm sm:text-base font-bold flex-shrink-0">&#1048;</div>
-              <div className="min-w-0">
-                <p className="text-xs sm:text-sm font-semibold text-white">Иван Смирнов</p>
-                <p className="text-[10px] sm:text-xs text-white/40">Full-stack разработчик · 6 лет опыта</p>
               </div>
             </div>
           </div>

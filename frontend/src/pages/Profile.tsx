@@ -3,9 +3,9 @@ import { LogOut, Download, Package, User, Mail } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Ожидает оплаты', color: 'text-amber-400 bg-amber-500/10' },
-  paid: { label: 'Оплачен', color: 'text-blue-400 bg-blue-500/10' },
-  delivered: { label: 'Доставлен', color: 'text-green-400 bg-green-500/10' },
+  Pending: { label: 'Ожидает оплаты', color: 'text-amber-400 bg-amber-500/10' },
+  Paid: { label: 'Оплачен', color: 'text-blue-400 bg-blue-500/10' },
+  Delivered: { label: 'Доставлен', color: 'text-green-400 bg-green-500/10' },
 };
 
 export default function Profile() {
@@ -68,20 +68,27 @@ export default function Profile() {
             ) : (
               <div className="space-y-2.5 sm:space-y-3">
                 {orders.map(order => {
-                  const s = STATUS_LABELS[order.status];
+                  const s = STATUS_LABELS[order.status] || STATUS_LABELS[order.status.charAt(0).toUpperCase() + order.status.slice(1).toLowerCase()];
                   return (
                     <div key={order.id} className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] p-4 sm:p-5">
                       <div className="flex items-start justify-between gap-3 sm:gap-4">
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1 flex-wrap">
-                            <span className="font-semibold text-white text-xs sm:text-sm">{order.id}</span>
+                            <span className="font-semibold text-white text-xs sm:text-sm">{order.orderNumber}</span>
                             {s && <span className={`px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-semibold rounded-full ${s.color}`}>{s.label}</span>}
                           </div>
-                          <p className="text-[10px] sm:text-xs text-white/30">{new Date(order.date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                          <p className="text-[10px] sm:text-xs text-white/30">{new Date(order.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                          {order.items.length > 0 && (
+                            <div className="mt-1.5 sm:mt-2 space-y-0.5">
+                              {order.items.map((item, i) => (
+                                <p key={i} className="text-[10px] sm:text-xs text-white/40">{item.title} — {item.price.toLocaleString('ru-RU')} &#8381;</p>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-white text-sm sm:text-base">{order.total.toLocaleString('ru-RU')} &#8381;</p>
-                          {(order.status === 'delivered' || order.status === 'paid') && (
+                          <p className="font-bold text-white text-sm sm:text-base">{order.totalAmount.toLocaleString('ru-RU')} &#8381;</p>
+                          {(order.status === 'Paid' || order.status === 'Delivered') && (
                             <button className="mt-1 sm:mt-1.5 flex items-center gap-1 text-[10px] sm:text-xs text-[#f97316] hover:text-[#ea580c] font-medium transition-colors ml-auto">
                               <Download size={11} className="sm:w-3 sm:h-3" /> Скачать
                             </button>
