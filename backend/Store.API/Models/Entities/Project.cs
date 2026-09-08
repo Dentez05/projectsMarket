@@ -49,5 +49,6 @@ namespace Store.API.Models.Entities
 
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
         public ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
+        public ICollection<ProjectFile> ProjectFiles { get; set; } = new List<ProjectFile>();
     }
 }

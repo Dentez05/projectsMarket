@@ -216,6 +216,46 @@ namespace Store.API.Migrations
                     b.ToTable("projects", (string)null);
                 });
 
+            modelBuilder.Entity("Store.API.Models.Entities.ProjectFile", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("FileType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("OriginalFileName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("ProjectId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FileType");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("project_files", (string)null);
+                });
+
             modelBuilder.Entity("Store.API.Models.Entities.CartItem", b =>
                 {
                     b.HasOne("Store.API.Models.Entities.Project", "Project")
@@ -256,6 +296,17 @@ namespace Store.API.Migrations
                     b.Navigation("Category");
                 });
 
+            modelBuilder.Entity("Store.API.Models.Entities.ProjectFile", b =>
+                {
+                    b.HasOne("Store.API.Models.Entities.Project", "Project")
+                        .WithMany("ProjectFiles")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("Store.API.Models.Entities.Category", b =>
                 {
                     b.Navigation("Projects");
@@ -271,6 +322,8 @@ namespace Store.API.Migrations
                     b.Navigation("CartItems");
 
                     b.Navigation("OrderItems");
+
+                    b.Navigation("ProjectFiles");
                 });
 #pragma warning restore 612, 618
         }

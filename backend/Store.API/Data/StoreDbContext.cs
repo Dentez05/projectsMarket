@@ -15,6 +15,7 @@ namespace Store.API.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<CartItem> CartItems { get; set; }
+        public DbSet<ProjectFile> ProjectFiles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -81,6 +82,19 @@ namespace Store.API.Data
 
                 entity.HasOne(e => e.Project)
                     .WithMany(p => p.CartItems)
+                    .HasForeignKey(e => e.ProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ProjectFile>(entity =>
+            {
+                entity.ToTable("project_files");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.ProjectId);
+                entity.HasIndex(e => e.FileType);
+
+                entity.HasOne(e => e.Project)
+                    .WithMany(p => p.ProjectFiles)
                     .HasForeignKey(e => e.ProjectId)
                     .OnDelete(DeleteBehavior.Cascade);
             });

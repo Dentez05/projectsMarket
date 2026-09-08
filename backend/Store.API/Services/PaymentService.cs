@@ -14,14 +14,14 @@ namespace Store.API.Services
         private readonly StoreDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly ILogger<PaymentService> _logger;
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        public PaymentService(StoreDbContext context, IConfiguration configuration, ILogger<PaymentService> logger)
+        public PaymentService(StoreDbContext context, IConfiguration configuration, ILogger<PaymentService> logger, IHttpClientFactory httpClientFactory)
         {
             _context = context;
             _configuration = configuration;
             _logger = logger;
-            _httpClient = new HttpClient();
+            _httpClientFactory = httpClientFactory;
         }
 
         public async Task<string> CheckPaymentStatusAsync(string paymentId)
@@ -30,10 +30,10 @@ namespace Store.API.Services
             var secretKey = _configuration["YooKassa:SecretKey"];
             var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{shopId}:{secretKey}"));
 
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Basic {auth}");
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Add("Authorization", $"Basic {auth}");
 
-            var response = await _httpClient.GetAsync($"https://api.yookassa.ru/v3/payments/{paymentId}");
+            var response = await client.GetAsync($"https://api.yookassa.ru/v3/payments/{paymentId}");
             var responseJson = await response.Content.ReadAsStringAsync();
 
             using var jsonDoc = JsonDocument.Parse(responseJson);
@@ -62,7 +62,7 @@ namespace Store.API.Services
             {
                 customer = new
                 {
-                    email = "customer@example.com"  
+                    email = "customer@example.com"
                 },
                 items = order.OrderItems.Select(oi => new
                 {
@@ -73,7 +73,7 @@ namespace Store.API.Services
                         value = oi.PriceAtTime.ToString("F2", CultureInfo.InvariantCulture),
                         currency = "RUB"
                     },
-                    vat_code = "2",  // 2 = НДС 0%
+                    vat_code = "2",
                     payment_mode = "full_prepayment",
                     payment_subject = "commodity"
                 }).ToList()
@@ -83,7 +83,7 @@ namespace Store.API.Services
             {
                 amount = new
                 {
-                    value = order.TotalAmount.ToString("F2", CultureInfo.InvariantCulture), 
+                    value = order.TotalAmount.ToString("F2", CultureInfo.InvariantCulture),
                     currency = "RUB"
                 },
                 capture = true,
@@ -107,11 +107,11 @@ namespace Store.API.Services
             var secretKey = _configuration["YooKassa:SecretKey"];
             var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{shopId}:{secretKey}"));
 
-            _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Basic {auth}");
-            _httpClient.DefaultRequestHeaders.Add("Idempotence-Key", Guid.NewGuid().ToString());
+            var client = _httpClientFactory.CreateClient();
+            client.DefaultRequestHeaders.Add("Authorization", $"Basic {auth}");
+            client.DefaultRequestHeaders.Add("Idempotence-Key", Guid.NewGuid().ToString());
 
-            var response = await _httpClient.PostAsync("https://api.yookassa.ru/v3/payments", content);
+            var response = await client.PostAsync("https://api.yookassa.ru/v3/payments", content);
             var responseJson = await response.Content.ReadAsStringAsync();
 
             _logger.LogInformation("Ответ ЮKassa: {Response}", responseJson);

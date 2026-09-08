@@ -53,6 +53,8 @@ services:
       YooKassa__ShopId: "1348149"
       YooKassa__SecretKey: "test_SK3HJZ68nhbSlCyjGohseo4EoRcQ749tfKZyWNbQJqY"
       YooKassa__ReturnUrl: "http://localhost:5010/payment/success"
+    volumes:
+      - store_uploads:/app/wwwroot/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +65,8 @@ services:
       context: ./backend/ApiGateway
       dockerfile: Dockerfile
     container_name: projectsmarket-api-gateway
+    ports:
+      - "5000:8080"
     environment:
       ASPNETCORE_ENVIRONMENT: Development
     depends_on:
@@ -83,3 +87,4 @@ services:
 
 volumes:
   postgres_data:
+  store_uploads:
