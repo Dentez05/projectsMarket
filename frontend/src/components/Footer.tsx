@@ -1,7 +1,14 @@
 import { Link } from 'react-router-dom';
 import { Send, Phone, Mail, MapPin } from 'lucide-react';
+import { useMemo } from 'react';
+import { useApp } from '../store/AppContext';
 
 export default function Footer() {
+  const { projects } = useApp();
+  const categories = useMemo(() => {
+    return [...new Set(projects.map(p => p.categoryName).filter(Boolean))];
+  }, [projects]);
+
   return (
     <footer className="bg-[#0f1219] text-white/50 mt-auto border-t border-[#2e3548]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-14">
@@ -44,7 +51,7 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-3 sm:mb-4 text-sm">Каталог</h4>
             <ul className="space-y-2 sm:space-y-2.5 text-sm">
-              {['E-commerce', 'Dashboard', 'CRM', 'Чат-бот', 'API', 'Мобильное'].map(cat => (
+              {categories.map(cat => (
                 <li key={cat}>
                   <Link to={`/projects?category=${cat}`} className="hover:text-[#f97316] transition-colors">{cat}</Link>
                 </li>

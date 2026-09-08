@@ -9,7 +9,6 @@ export default function Cart() {
   const { cart, removeFromCart, checkout, user } = useApp();
   const navigate = useNavigate();
   const { toasts, addToast, removeToast } = useToast();
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const total = cart.reduce((sum, i) => sum + i.price, 0);
 
@@ -27,14 +26,8 @@ export default function Cart() {
   };
 
   const handleRemove = async (id: number) => {
-    if (confirmDelete === id) {
-      await removeFromCart(id);
-      setConfirmDelete(null);
-      addToast('Проект удалён из корзины', 'info');
-    } else {
-      setConfirmDelete(id);
-      setTimeout(() => setConfirmDelete(null), 3000);
-    }
+    await removeFromCart(id);
+    addToast('Проект удалён из корзины', 'info');
   };
 
   if (cart.length === 0) {
@@ -77,12 +70,8 @@ export default function Cart() {
                     </div>
                     <button
                       onClick={() => handleRemove(item.projectId)}
-                      className={`p-1 sm:p-1.5 rounded-lg transition-colors flex-shrink-0 ${
-                        confirmDelete === item.projectId
-                          ? 'text-red-400 bg-red-500/10 animate-pulse'
-                          : 'text-white/30 hover:text-red-400 hover:bg-red-500/10'
-                      }`}
-                      title={confirmDelete === item.projectId ? 'Нажмите ещё раз для удаления' : 'Удалить'}
+                      className="p-1 sm:p-1.5 rounded-lg text-white/30 hover:text-red-400 hover:bg-red-500/10 transition-colors flex-shrink-0"
+                      title="Удалить"
                     >
                       <Trash2 size={14} className="sm:w-[15px] sm:h-[15px]" />
                     </button>

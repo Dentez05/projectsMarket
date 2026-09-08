@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Plus, Pencil, Trash2, X, ArrowLeft } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
@@ -6,8 +6,6 @@ import { categoriesApi } from '../api/categories';
 import type { ApiProject, ApiCategory } from '../api/types';
 
 type View = 'list' | 'create' | 'edit';
-
-const CATEGORIES = ['E-commerce', 'Dashboard', 'CRM', 'Мобильное', 'API', 'Чат-бот', 'Аналитика'];
 
 export default function Admin() {
   const { projects, projectsLoaded } = useApp();
@@ -25,7 +23,15 @@ export default function Admin() {
     categoriesApi.getAll().then(setCategories).catch(() => {});
   }, []);
 
-  const filtered = filterCategory === 'Все' ? projectList : projectList.filter(p => p.categoryName === filterCategory);
+  const allCategories = useMemo(() => {
+    const fromProjects = projectList.map(p => p.categoryName).filter(Boolean);
+    const fromDb = categories.map(c => c.name);
+    const merged = [...new Set([...fromProjects, ...fromDb])];
+    return ['Все', ...merged];
+  }, [projectList, categories]);
+
+  const filtered = (filterCategory === 'Все' ? projectList : projectList.filter(p => p.categoryName === filterCategory))
+    .sort((a, b) => b.id - a.id);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Удалить проект?')) return;
@@ -75,7 +81,7 @@ export default function Admin() {
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 mb-5 sm:mb-6 scrollbar-hide">
           <button onClick={() => setFilterCategory('Все')}
             className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterCategory === 'Все' ? 'bg-[#f97316] text-white' : 'bg-[#232a3b] border border-[#2e3548] text-white/60 hover:border-[#f97316]/30'}`}>Все</button>
-          {CATEGORIES.map(cat => (
+          {allCategories.filter(c => c !== 'Все').map(cat => (
             <button key={cat} onClick={() => setFilterCategory(cat)}
               className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterCategory === cat ? 'bg-[#f97316] text-white' : 'bg-[#232a3b] border border-[#2e3548] text-white/60 hover:border-[#f97316]/30'}`}>{cat}</button>
           ))}
@@ -161,7 +167,7 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
   const [description, setDescription] = useState(project?.description || '');
   const [fullDescription, setFullDescription] = useState(project?.fullDescription || '');
   const [price, setPrice] = useState(project?.price || 0);
-  const [categoryId, setCategoryId] = useState<number | null>(project?.categoryId || null);
+  const [categoryName, setCategoryName] = useState(project?.categoryId ? categories.find(c => c.id === project.categoryId)?.name || '' : '');
   const [technologies, setTechnologies] = useState<string[]>(project?.technologies || []);
   const [techInput, setTechInput] = useState('');
   const [demo, setDemo] = useState(project?.demo || '');
@@ -171,20 +177,42 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
   const [popular, setPopular] = useState(project?.popular || false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [catSuggestions, setCatSuggestions] = useState<string[]>([]);
 
   const addTechnology = () => { if (techInput.trim() && !technologies.includes(techInput.trim())) { setTechnologies([...technologies, techInput.trim()]); setTechInput(''); } };
   const removeTechnology = (tech: string) => setTechnologies(technologies.filter(t => t !== tech));
   const addImage = () => { if (imageInput.trim() && !images.includes(imageInput.trim())) { setImages([...images, imageInput.trim()]); setImageInput(''); } };
   const removeImage = (url: string) => setImages(images.filter(i => i !== url));
 
+  const handleCategoryChange = (value: string) => {
+    setCategoryName(value);
+    if (value.trim()) {
+      const existing = categories.map(c => c.name);
+      setCatSuggestions(existing.filter(n => n.toLowerCase().includes(value.toLowerCase()) && n.toLowerCase() !== value.toLowerCase()).slice(0, 5));
+    } else {
+      setCatSuggestions([]);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
+      let resolvedCategoryId: number | null = null;
+      if (categoryName.trim()) {
+        const existing = categories.find(c => c.name.toLowerCase() === categoryName.trim().toLowerCase());
+        if (existing) {
+          resolvedCategoryId = existing.id;
+        } else {
+          const newCat = await categoriesApi.create({ name: categoryName.trim(), description: '' });
+          resolvedCategoryId = newCat.id;
+        }
+      }
+
       const data = {
         title, description, fullDescription, price,
-        categoryId, images, technologies, demo, isNew, popular,
+        categoryId: resolvedCategoryId, images, technologies, demo, isNew, popular,
       };
       if (project) {
         const updated = await projectsApi.update(project.id, data);
@@ -228,13 +256,19 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
               <input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} required min={0}
                 className="w-full px-3 py-2 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]" />
             </div>
-            <div>
+            <div className="relative">
               <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1">Категория</label>
-              <select value={categoryId || ''} onChange={e => setCategoryId(e.target.value ? Number(e.target.value) : null)}
-                className="w-full px-3 py-2 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]">
-                <option value="">Не указана</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <input type="text" value={categoryName} onChange={e => handleCategoryChange(e.target.value)}
+                placeholder="Например: E-commerce, CRM..."
+                className="w-full px-3 py-2 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]" />
+              {catSuggestions.length > 0 && (
+                <div className="absolute z-10 top-full mt-1 w-full bg-[#2a3244] border border-[#2e3548] rounded-lg shadow-xl max-h-40 overflow-y-auto">
+                  {catSuggestions.map(s => (
+                    <button key={s} type="button" onClick={() => { setCategoryName(s); setCatSuggestions([]); }}
+                      className="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-[#374155] hover:text-white transition-colors">{s}</button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div>

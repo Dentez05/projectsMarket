@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Shield, Zap, HeadphonesIcon, Star, ShoppingCart, ChevronRight, Eye, CreditCard, Download, Rocket } from 'lucide-react';
+import { useMemo } from 'react';
 import { useApp } from '../store/AppContext';
 import ProjectCard from '../components/ProjectCard';
 import ScrollReveal from '../components/ui/ScrollReveal';
@@ -11,17 +12,21 @@ const FEATURES = [
   { icon: <Star size={24} className="text-[#f97316]" />, title: 'Актуальные технологии', desc: 'Все проекты на современном стеке: React, Node.js, Python, Docker и другие.' },
 ];
 
-const SERVICE_CARDS = [
-  { title: 'E-commerce', desc: 'Готовые интернет-магазины с оплатой и доставкой', icon: <ShoppingCart size={20} /> },
-  { title: 'Dashboard', desc: 'Аналитические панели управления бизнесом', icon: <Zap size={20} /> },
-  { title: 'CRM-системы', desc: 'Управление клиентами и продажами', icon: <HeadphonesIcon size={20} /> },
-  { title: 'Мобильные приложения', desc: 'React Native и Flutter решения', icon: <Star size={20} /> },
-];
+const CATEGORY_ICONS: Record<string, typeof ShoppingCart> = {
+  'E-commerce': ShoppingCart,
+  'Dashboard': Zap,
+  'CRM': HeadphonesIcon,
+};
 
 export default function Home() {
   const { projects } = useApp();
   const popular = projects.filter(p => p.popular).slice(0, 4);
   const newest = projects.filter(p => p.isNew).slice(0, 4);
+
+  const categories = useMemo(() => {
+    const names = [...new Set(projects.map(p => p.categoryName).filter(Boolean))];
+    return names.slice(0, 4);
+  }, [projects]);
 
   return (
     <div>
@@ -58,15 +63,19 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {SERVICE_CARDS.map((card, i) => (
-              <ScrollReveal key={card.title} delay={300 + i * 75}>
-                <Link to="/projects" className="block bg-[#232a3b]/80 backdrop-blur-sm border border-[#2e3548] rounded-xl p-3.5 sm:p-5 group cursor-pointer transition-all duration-300 hover:border-[#f97316]/30 hover:bg-[#2a3244]/80">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#f97316]/10 flex items-center justify-center text-[#f97316] mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform">{card.icon}</div>
-                  <h3 className="text-white font-semibold text-xs sm:text-sm mb-1 sm:mb-1.5">{card.title}</h3>
-                  <p className="text-white/40 text-[10px] sm:text-xs leading-relaxed hidden sm:block">{card.desc}</p>
-                </Link>
-              </ScrollReveal>
-            ))}
+            {categories.map((cat, i) => {
+              const Icon = CATEGORY_ICONS[cat] || Zap;
+              const count = projects.filter(p => p.categoryName === cat).length;
+              return (
+                <ScrollReveal key={cat} delay={300 + i * 75}>
+                  <Link to={`/projects?category=${cat}`} className="block bg-[#232a3b]/80 backdrop-blur-sm border border-[#2e3548] rounded-xl p-3.5 sm:p-5 group cursor-pointer transition-all duration-300 hover:border-[#f97316]/30 hover:bg-[#2a3244]/80">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg bg-[#f97316]/10 flex items-center justify-center text-[#f97316] mb-2.5 sm:mb-3 group-hover:scale-110 transition-transform"><Icon size={20} /></div>
+                    <h3 className="text-white font-semibold text-xs sm:text-sm mb-1 sm:mb-1.5">{cat}</h3>
+                    <p className="text-white/40 text-[10px] sm:text-xs leading-relaxed hidden sm:block">{count} проектов</p>
+                  </Link>
+                </ScrollReveal>
+              );
+            })}
           </div>
         </div>
       </section>

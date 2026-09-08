@@ -8,11 +8,11 @@ import ScrollReveal from '../components/ui/ScrollReveal';
 import { useDebounce } from '../hooks/useDebounce';
 
 const PAGE_SIZE = 6;
-const CATEGORIES = ['Все', 'E-commerce', 'Dashboard', 'CRM', 'Мобильное', 'API', 'Чат-бот', 'Аналитика'];
 
-type SortOption = 'popular' | 'price-asc' | 'price-desc' | 'newest';
+type SortOption = 'default' | 'popular' | 'price-asc' | 'price-desc' | 'newest';
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'default', label: 'По умолчанию' },
   { value: 'popular', label: 'По популярности' },
   { value: 'price-asc', label: 'Дешевле' },
   { value: 'price-desc', label: 'Дороже' },
@@ -27,11 +27,16 @@ export default function Projects() {
   const [category, setCategory] = useState(initialCat);
   const [priceMin, setPriceMin] = useState('');
   const [priceMax, setPriceMax] = useState('');
-  const [sort, setSort] = useState<SortOption>('popular');
+  const [sort, setSort] = useState<SortOption>('default');
   const [showCount, setShowCount] = useState(PAGE_SIZE);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
+
+  const allCategories = useMemo(() => {
+    const fromProjects = projects.map(p => p.categoryName).filter(Boolean);
+    return ['Все', ...new Set(fromProjects)];
+  }, [projects]);
 
   const filtered = useMemo(() => {
     let result = projects.filter(p => {
@@ -43,6 +48,7 @@ export default function Projects() {
     });
 
     switch (sort) {
+      case 'default': result = [...result].sort((a, b) => b.id - a.id); break;
       case 'price-asc': result = [...result].sort((a, b) => a.price - b.price); break;
       case 'price-desc': result = [...result].sort((a, b) => b.price - a.price); break;
       case 'newest': result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); break;
@@ -55,8 +61,8 @@ export default function Projects() {
   const visible = filtered.slice(0, showCount);
   const hasMore = showCount < filtered.length;
 
-  const clearFilters = () => { setSearch(''); setCategory('Все'); setPriceMin(''); setPriceMax(''); setSort('popular'); setShowCount(PAGE_SIZE); };
-  const hasFilters = search || category !== 'Все' || priceMin || priceMax || sort !== 'popular';
+  const clearFilters = () => { setSearch(''); setCategory('Все'); setPriceMin(''); setPriceMax(''); setSort('default'); setShowCount(PAGE_SIZE); };
+  const hasFilters = search || category !== 'Все' || priceMin || priceMax || sort !== 'default';
 
   const handleShowMore = useCallback(() => {
     setShowCount(prev => prev + PAGE_SIZE);
@@ -97,7 +103,7 @@ export default function Projects() {
             <div>
               <label className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-2 block">Категория</label>
               <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map(cat => (
+                {allCategories.map(cat => (
                   <button key={cat} onClick={() => { setCategory(cat); setShowCount(PAGE_SIZE); }}
                     className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all ${category === cat ? 'bg-[#f97316] text-white' : 'bg-[#2a3244] border border-[#2e3548] text-white/60 hover:border-[#f97316]/30'}`}>{cat}</button>
                 ))}
@@ -127,7 +133,7 @@ export default function Projects() {
         )}
 
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 mb-5 sm:mb-6 scrollbar-hide">
-          {CATEGORIES.map(cat => (
+          {allCategories.map(cat => (
             <button key={cat} onClick={() => { setCategory(cat); setShowCount(PAGE_SIZE); }}
               className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all ${category === cat ? 'bg-[#f97316] text-white shadow-sm' : 'bg-[#232a3b] border border-[#2e3548] text-white/60 hover:border-[#f97316]/30 hover:text-[#f97316]'}`}>{cat}</button>
           ))}

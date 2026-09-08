@@ -26,7 +26,7 @@ namespace Store.API.Data
                 entity.ToTable("projects");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
-                entity.Property(e => e.Price).HasColumnType("decimal(10, 2)");
+                entity.Property(e => e.Price).HasColumnType("decimal(18, 2)");
                 entity.Property(e => e.Images).HasColumnType("jsonb");
                 entity.Property(e => e.Technologies).HasColumnType("jsonb");
                 entity.HasIndex(e => e.CreatedByUserId);

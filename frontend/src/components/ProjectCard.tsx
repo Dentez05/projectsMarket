@@ -114,7 +114,7 @@ export default function ProjectCard({ project }: Props) {
                   inCart ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-default' : 'btn-primary'
                 }`}
               >
-                {inCart ? <><Check size={13} /> <span className="hidden xs:inline">В корзине</span><span className="xs:hidden">✓</span></> : <><ShoppingCart size={13} /> <span className="hidden xs:inline">В корзину</span><span className="xs:hidden">+</span></>}
+                {inCart ? <><Check size={13} /> <span>В корзине</span></> : <><ShoppingCart size={13} /> <span>В корзину</span></>}
               </button>
             </div>
           </div>
