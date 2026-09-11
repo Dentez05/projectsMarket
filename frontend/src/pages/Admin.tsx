@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Plus, Pencil, Trash2, X, ArrowLeft } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import { categoriesApi } from '../api/categories';
+import { uploadApi, type ProjectFileResponse } from '../api/upload';
 import type { ApiProject, ApiCategory } from '../api/types';
 
 type View = 'list' | 'create' | 'edit';
@@ -178,6 +179,16 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [catSuggestions, setCatSuggestions] = useState<string[]>([]);
+  const [projectFiles, setProjectFiles] = useState<ProjectFileResponse[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (project?.id) {
+      uploadApi.getProjectFiles(project.id).then(setProjectFiles).catch(() => {});
+    }
+  }, [project?.id]);
 
   const addTechnology = () => { if (techInput.trim() && !technologies.includes(techInput.trim())) { setTechnologies([...technologies, techInput.trim()]); setTechInput(''); } };
   const removeTechnology = (tech: string) => setTechnologies(technologies.filter(t => t !== tech));
@@ -192,6 +203,38 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
     } else {
       setCatSuggestions([]);
     }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const fileArray = Array.from(files);
+    if (project?.id) {
+      setUploadingFile(true);
+      try {
+        const results = await uploadApi.uploadProjectFiles(fileArray, project.id, 'source_code');
+        setProjectFiles(prev => [...prev, ...results]);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Ошибка загрузки файла');
+      }
+      setUploadingFile(false);
+    } else {
+      setPendingFiles(prev => [...prev, ...fileArray]);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleDeleteFile = async (fileId: number) => {
+    try {
+      await uploadApi.deleteFile(fileId);
+      setProjectFiles(prev => prev.filter(f => f.id !== fileId));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Ошибка удаления файла');
+    }
+  };
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -219,6 +262,9 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
         onCreated(updated);
       } else {
         const created = await projectsApi.create(data);
+        if (pendingFiles.length > 0 && created.id) {
+          await uploadApi.uploadProjectFiles(pendingFiles, created.id, 'source_code');
+        }
         onCreated(created);
       }
     } catch (err: unknown) {
@@ -320,6 +366,44 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
             </label>
           </div>
           {error && <p className="text-xs sm:text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
+
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1">Файлы проекта (исходный код)</label>
+            <p className="text-[10px] sm:text-xs text-white/30 mb-2">Загрузите архив или файлы проекта. Пользователи смогут скачать после оплаты.</p>
+            <div className="flex items-center gap-2">
+              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingFile}
+                className="flex items-center gap-2 px-3 py-2 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white/60 hover:border-[#f97316]/30 hover:text-[#f97316] transition-colors disabled:opacity-50">
+                {uploadingFile ? <span className="w-4 h-4 border-2 border-white/30 border-t-[#f97316] rounded-full animate-spin" /> : <Upload size={15} />}
+                {uploadingFile ? 'Загрузка...' : 'Выберите файлы'}
+              </button>
+            </div>
+            {pendingFiles.length > 0 && !project?.id && (
+              <div className="mt-2 space-y-1">
+                {pendingFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-[#2a3244] rounded-lg text-xs text-white/50">
+                    <FileArchive size={13} className="text-[#f97316]" />
+                    <span className="truncate">{f.name}</span>
+                    <span className="text-white/30">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                    <button type="button" onClick={() => removePendingFile(i)} className="ml-auto text-red-400 hover:text-red-300"><X size={12} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {projectFiles.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {projectFiles.map(f => (
+                  <div key={f.id} className="flex items-center gap-2 px-3 py-1.5 bg-[#2a3244] rounded-lg text-xs text-white/50">
+                    <FileArchive size={13} className="text-[#f97316]" />
+                    <span className="truncate">{f.originalFileName}</span>
+                    <span className="text-white/30 ml-auto">{(f.fileSize / 1024 / 1024).toFixed(1)} MB</span>
+                    <button type="button" onClick={() => handleDeleteFile(f.id)} className="text-red-400 hover:text-red-300 ml-1"><X size={12} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end gap-2.5 sm:gap-3 pt-3 sm:pt-4 border-t border-[#2e3548]">
             <button type="button" onClick={onBack} className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white/50 hover:bg-white/5 rounded-lg transition-colors">Отмена</button>
             <button type="submit" disabled={loading} className="btn-primary px-5 sm:px-6 py-2 text-xs sm:text-sm rounded-lg flex items-center gap-2">

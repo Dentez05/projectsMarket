@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Store.API.Data;
 using Store.API.Models.DTOs;
+using System.IO.Compression;
 
 namespace Store.API.Controllers
 {
@@ -67,19 +68,28 @@ namespace Store.API.Controllers
                 return File(fileBytes, contentType, fileName);
             }
 
-            // Multiple files - return list for client to download individually
-            var fileResponses = files.Select(f => new ProjectFileResponse
+            // Multiple files - bundle into zip
+            using var zipStream = new MemoryStream();
+            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
             {
-                Id = f.Id,
-                ProjectId = f.ProjectId,
-                FileType = f.FileType,
-                FilePath = f.FilePath,
-                OriginalFileName = f.OriginalFileName,
-                FileSize = f.FileSize,
-                UploadedAt = f.UploadedAt
-            }).ToList();
+                foreach (var file in files)
+                {
+                    var fullPath = Path.Combine(_env.WebRootPath, file.FilePath.TrimStart('/'));
+                    if (!System.IO.File.Exists(fullPath))
+                        continue;
 
-            return Ok(fileResponses);
+                    var entryName = file.OriginalFileName ?? Path.GetFileName(file.FilePath);
+                    archive.CreateEntryFromFile(fullPath, entryName, CompressionLevel.Fastest);
+                }
+            }
+
+            zipStream.Position = 0;
+            var zipFileName = $"order_{order.OrderNumber}_files.zip";
+
+            _logger.LogInformation("User {UserId} downloaded {FileCount} files as zip from order {OrderNumber}",
+                userId, files.Count, order.OrderNumber);
+
+            return File(zipStream.ToArray(), "application/zip", zipFileName);
         }
 
         [HttpGet("files/{fileId}")]
@@ -113,6 +123,27 @@ namespace Store.API.Controllers
             var fileName = file.OriginalFileName ?? Path.GetFileName(file.FilePath);
 
             return File(fileBytes, contentType, fileName);
+        }
+
+        [HttpDelete("files/{fileId}")]
+        public async Task<IActionResult> DeleteFile(int fileId)
+        {
+            var isAdmin = User.IsInRole("Admin");
+            if (!isAdmin)
+                return Forbid();
+
+            var file = await _context.ProjectFiles.FindAsync(fileId);
+            if (file == null)
+                return NotFound();
+
+            var fullPath = Path.Combine(_env.WebRootPath, file.FilePath.TrimStart('/'));
+            if (System.IO.File.Exists(fullPath))
+                System.IO.File.Delete(fullPath);
+
+            _context.ProjectFiles.Remove(file);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
 
         [HttpPost("upload")]

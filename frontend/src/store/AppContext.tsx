@@ -115,7 +115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         totalAmount: o.totalAmount,
         status: o.status,
         createdAt: o.createdAt,
-        paymentId: o.paymentId,
+        paymentId: o.paymentId ?? undefined,
         items: o.items,
       })));
     } catch {}

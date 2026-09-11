@@ -1,5 +1,3 @@
-import { api } from './client';
-
 export interface ProjectFileResponse {
   id: number;
   projectId: number;
@@ -11,15 +9,46 @@ export interface ProjectFileResponse {
 }
 
 export const uploadApi = {
-  uploadFile: (file: File, projectId?: number) =>
-    api.upload('/Upload', file, projectId ? { projectId: String(projectId) } : undefined),
+  uploadProjectFile: async (file: File, projectId: number, fileType: string): Promise<ProjectFileResponse> => {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch(`/api/Download/upload?projectId=${projectId}&fileType=${fileType}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || 'Ошибка загрузки файла');
+    }
+    return res.json();
+  },
 
-  uploadImage: (file: File, projectId?: number) =>
-    api.upload('/Upload/image', file, projectId ? { projectId: String(projectId) } : undefined),
+  uploadProjectFiles: async (files: File[], projectId: number, fileType: string): Promise<ProjectFileResponse[]> => {
+    const results: ProjectFileResponse[] = [];
+    for (const file of files) {
+      const result = await uploadApi.uploadProjectFile(file, projectId, fileType);
+      results.push(result);
+    }
+    return results;
+  },
 
-  getProjectFiles: (projectId: number) =>
-    api.get<ProjectFileResponse[]>(`/Download/project/${projectId}`),
+  getProjectFiles: async (projectId: number): Promise<ProjectFileResponse[]> => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`/api/Download/project/${projectId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) return [];
+    return res.json();
+  },
 
-  uploadProjectFile: (file: File, projectId: number, fileType: string) =>
-    api.upload('/Download/upload', file, { projectId: String(projectId), fileType }),
+  deleteFile: async (fileId: number): Promise<void> => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`/api/Download/files/${fileId}`, {
+      method: 'DELETE',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error('Ошибка удаления файла');
+  },
 };

@@ -2,6 +2,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { LogOut, Download, Package, User, Mail, CreditCard } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { paymentsApi } from '../api/payments';
+import { api } from '../api/client';
 import { useState, useEffect } from 'react';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
@@ -48,6 +49,46 @@ export default function Profile() {
       window.open(confirmationUrl, '_blank');
     } catch {}
     setPayingId(null);
+  };
+
+  const handleDownload = async (orderId: number) => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(`/api/Download/orders/${orderId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) return;
+    const ct = res.headers.get('content-type') || '';
+    const cd = res.headers.get('content-disposition') || '';
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    if (ct.includes('application/zip')) {
+      const match = cd.match(/filename="?([^";\n]+)"?/);
+      a.download = match ? match[1] : `order_${orderId}_files.zip`;
+    } else if (ct.includes('application/json')) {
+      const files = await res.clone().json();
+      for (const f of files) {
+        const fileRes = await fetch(`/api/Download/files/${f.id}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!fileRes.ok) continue;
+        const fileBlob = await fileRes.blob();
+        const fileUrl = URL.createObjectURL(fileBlob);
+        const fileA = document.createElement('a');
+        fileA.href = fileUrl;
+        fileA.download = f.originalFileName || `file_${f.id}`;
+        fileA.click();
+        URL.revokeObjectURL(fileUrl);
+      }
+      URL.revokeObjectURL(url);
+      return;
+    } else {
+      const match = cd.match(/filename="?([^";\n]+)"?/);
+      a.download = match ? match[1] : `order_${orderId}_files`;
+    }
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -119,7 +160,7 @@ export default function Profile() {
                             </button>
                           )}
                           {(order.status === 'Paid' || order.status === 'Delivered') && (
-                            <button className="mt-1 sm:mt-1.5 flex items-center gap-1 text-[10px] sm:text-xs text-[#f97316] hover:text-[#ea580c] font-medium transition-colors ml-auto">
+                            <button onClick={() => handleDownload(order.id)} className="mt-1 sm:mt-1.5 flex items-center gap-1 text-[10px] sm:text-xs text-[#f97316] hover:text-[#ea580c] font-medium transition-colors ml-auto">
                               <Download size={11} className="sm:w-3 sm:h-3" /> Скачать
                             </button>
                           )}
