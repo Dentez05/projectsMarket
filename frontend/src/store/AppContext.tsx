@@ -25,6 +25,7 @@ export interface Order {
   totalAmount: number;
   status: string;
   createdAt: string;
+  paymentId?: string;
   items: { projectId: number; title: string; price: number }[];
 }
 
@@ -34,7 +35,7 @@ interface AppState {
   orders: Order[];
   projects: ApiProject[];
   projectsLoaded: boolean;
-  addToCart: (project: ApiProject) => Promise<void>;
+  addToCart: (project: ApiProject) => Promise<boolean>;
   removeFromCart: (projectId: number) => Promise<void>;
   isInCart: (projectId: number) => boolean;
   login: (email: string, password: string) => Promise<boolean>;
@@ -114,6 +115,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         totalAmount: o.totalAmount,
         status: o.status,
         createdAt: o.createdAt,
+        paymentId: o.paymentId,
         items: o.items,
       })));
     } catch {}
@@ -162,8 +164,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOrders([]);
   };
 
-  const addToCart = async (project: ApiProject) => {
-    if (cart.some(i => i.projectId === project.id)) return;
+  const addToCart = async (project: ApiProject): Promise<boolean> => {
+    if (!user) return false;
+    if (cart.some(i => i.projectId === project.id)) return true;
     setCart(prev => [...prev, {
       projectId: project.id,
       title: project.title,
@@ -172,8 +175,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }]);
     try {
       await cartApi.add(project.id);
+      return true;
     } catch {
       setCart(prev => prev.filter(i => i.projectId !== project.id));
+      return false;
     }
   };
 

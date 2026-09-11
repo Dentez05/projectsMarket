@@ -20,7 +20,7 @@ namespace Store.API.Controllers
         }
 
         [HttpPost("orders/{id}")]
-        public async Task<IActionResult> CreatePayment(int id, [FromBody] CreatePaymentRequest request)
+        public async Task<IActionResult> CreatePayment(int id)
         {
             var userId = int.Parse(User.FindFirst("uid")?.Value ?? "0");
             var isAdmin = User.IsInRole("Admin");
@@ -33,7 +33,7 @@ namespace Store.API.Controllers
             if (order.Status != "Pending")
                 return BadRequest("Заказ уже оплачен или отменён");
 
-            var payment = await _paymentService.CreatePaymentAsync(id, "https://localhost:7105/payment/success");
+            var payment = await _paymentService.CreatePaymentAsync(id, "http://localhost:5010/profile");
 
             return Ok(new
             {
@@ -66,6 +66,32 @@ namespace Store.API.Controllers
             }
 
             return BadRequest(new { message = "Заказ не оплачен", orderId, status = order.Status });
+        }
+
+        [HttpGet("check/{orderId}")]
+        public async Task<IActionResult> CheckStatus(int orderId)
+        {
+            var userId = int.Parse(User.FindFirst("uid")?.Value ?? "0");
+            var isAdmin = User.IsInRole("Admin");
+
+            var order = await _orderService.GetOrderByIdAsync(userId, orderId, isAdmin);
+            if (order == null)
+                return NotFound();
+
+            if (order.Status == "Paid")
+                return Ok(new { status = "Paid" });
+
+            if (!string.IsNullOrEmpty(order.PaymentId))
+            {
+                var paymentStatus = await _paymentService.CheckPaymentStatusAsync(order.PaymentId);
+                if (paymentStatus == "succeeded")
+                {
+                    await _orderService.MarkOrderAsPaidAsync(orderId);
+                    return Ok(new { status = "Paid" });
+                }
+            }
+
+            return Ok(new { status = order.Status });
         }
     }
 }

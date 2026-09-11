@@ -108,7 +108,10 @@ export default function ProjectDetail() {
             <div className="p-4 sm:p-5 bg-[#232a3b] border border-[#2e3548] rounded-xl sm:rounded-2xl">
               <div className="text-2xl sm:text-3xl font-bold text-white mb-3 sm:mb-4">{project.price.toLocaleString('ru-RU')} &#8381;</div>
               <div className="flex flex-col gap-2.5 sm:gap-3">
-                <button onClick={() => addToCart(project)} disabled={inCart}
+                <button onClick={async () => {
+                    const ok = await addToCart(project);
+                    if (!ok) navigate('/login');
+                  }} disabled={inCart}
                   className={`flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 sm:px-6 rounded-xl text-sm sm:text-base font-semibold transition-all ${inCart ? 'bg-green-500/10 text-green-400 border border-green-500/20 cursor-default' : 'btn-primary'}`}>
                   {inCart ? <><Check size={16} className="sm:w-[18px] sm:h-[18px]" /> В корзине</> : <><ShoppingCart size={16} className="sm:w-[18px] sm:h-[18px]" /> Добавить в корзину</>}
                 </button>

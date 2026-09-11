@@ -1,28 +1,40 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Trash2, ShoppingBag, Send, MessageCircle, ArrowRight } from 'lucide-react';
 import { useApp } from '../store/AppContext';
+import { ordersApi } from '../api/orders';
+import { paymentsApi } from '../api/payments';
 import { useToast } from '../hooks/useToast';
 import ToastContainer from '../components/ui/Toast';
 
 export default function Cart() {
-  const { cart, removeFromCart, checkout, user } = useApp();
+  const { cart, removeFromCart, user, refreshCart } = useApp();
   const navigate = useNavigate();
   const { toasts, addToast, removeToast } = useToast();
   const [loading, setLoading] = useState(false);
+  const checkoutRef = useRef(false);
   const total = cart.reduce((sum, i) => sum + i.price, 0);
 
   const handleCheckout = async () => {
     if (!user) { navigate('/login'); return; }
+    if (checkoutRef.current) return;
+    checkoutRef.current = true;
     setLoading(true);
-    const orderNumber = await checkout();
-    setLoading(false);
-    if (orderNumber) {
-      addToast(`Заказ ${orderNumber} оформлен! Перейдите в личный кабинет для оплаты.`, 'success');
-      setTimeout(() => navigate('/profile'), 1000);
-    } else {
+    try {
+      const order = await ordersApi.create();
+      await refreshCart();
+      try {
+        const { confirmationUrl } = await paymentsApi.create(order.id);
+        window.open(confirmationUrl, '_blank');
+      } catch {
+        addToast(`Заказ ${order.orderNumber} оформлен! Оплата будет доступна в личном кабинете.`, 'success');
+      }
+      setTimeout(() => navigate('/profile'), 500);
+    } catch {
       addToast('Ошибка при оформлении заказа', 'error');
     }
+    setLoading(false);
+    checkoutRef.current = false;
   };
 
   const handleRemove = async (id: number) => {

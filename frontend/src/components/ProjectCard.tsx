@@ -108,7 +108,10 @@ export default function ProjectCard({ project }: Props) {
                 <Eye size={14} className="sm:w-4 sm:h-4" />
               </Link>
               <button
-                onClick={() => addToCart(project)}
+                onClick={async () => {
+                  const ok = await addToCart(project);
+                  if (!ok) navigate('/login');
+                }}
                 disabled={inCart}
                 className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
                   inCart ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-default' : 'btn-primary'

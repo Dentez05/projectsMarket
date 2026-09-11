@@ -1,10 +1,9 @@
 import { api } from './client';
-import type { ApiPaymentResponse } from './types';
 
 export const paymentsApi = {
   create: (orderId: number) =>
-    api.post<ApiPaymentResponse>('/Payment/create', { orderId }),
+    api.post<{ paymentId: string; confirmationUrl: string }>(`/Payments/orders/${orderId}`),
 
-  checkStatus: (paymentId: string) =>
-    api.get<{ status: string }>(`/Payment/status/${paymentId}`),
+  checkOrderStatus: (orderId: number) =>
+    api.get<{ status: string }>(`/Payments/check/${orderId}`),
 };

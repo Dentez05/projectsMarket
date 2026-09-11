@@ -24,7 +24,8 @@ builder.Services.Configure<FormOptions>(options =>
 builder.Services.AddDbContext<StoreDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
 
-builder.Services.AddHttpClient<IPaymentService, PaymentService>();
+builder.Services.AddHttpClient();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<ICartRepository, CartRepository>();

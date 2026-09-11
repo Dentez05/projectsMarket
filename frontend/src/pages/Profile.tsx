@@ -1,6 +1,8 @@
 import { useNavigate, Link } from 'react-router-dom';
-import { LogOut, Download, Package, User, Mail } from 'lucide-react';
+import { LogOut, Download, Package, User, Mail, CreditCard } from 'lucide-react';
 import { useApp } from '../store/AppContext';
+import { paymentsApi } from '../api/payments';
+import { useState, useEffect } from 'react';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   Pending: { label: 'Ожидает оплаты', color: 'text-amber-400 bg-amber-500/10' },
@@ -9,8 +11,20 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function Profile() {
-  const { user, orders, logout } = useApp();
+  const { user, orders, logout, refreshOrders } = useApp();
   const navigate = useNavigate();
+  const [payingId, setPayingId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!user || orders.length === 0) return;
+    const pending = orders.filter(o => o.status === 'Pending' && o.paymentId);
+    pending.forEach(async (o) => {
+      try {
+        const { status } = await paymentsApi.checkOrderStatus(o.id);
+        if (status === 'Paid') await refreshOrders();
+      } catch {}
+    });
+  }, [user, orders, refreshOrders]);
 
   if (!user) {
     return (
@@ -26,6 +40,15 @@ export default function Profile() {
   }
 
   const handleLogout = () => { logout(); navigate('/'); };
+
+  const handlePay = async (orderId: number) => {
+    setPayingId(orderId);
+    try {
+      const { confirmationUrl } = await paymentsApi.create(orderId);
+      window.open(confirmationUrl, '_blank');
+    } catch {}
+    setPayingId(null);
+  };
 
   return (
     <div className="pt-14 sm:pt-20 lg:pt-24">
@@ -88,6 +111,13 @@ export default function Profile() {
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className="font-bold text-white text-sm sm:text-base">{order.totalAmount.toLocaleString('ru-RU')} &#8381;</p>
+                          {order.status === 'Pending' && (
+                            <button onClick={() => handlePay(order.id)} disabled={payingId === order.id}
+                              className="mt-1 sm:mt-1.5 flex items-center gap-1 text-[10px] sm:text-xs text-[#f97316] hover:text-[#ea580c] font-medium transition-colors ml-auto">
+                              {payingId === order.id ? <span className="w-3 h-3 border-2 border-[#f97316]/30 border-t-[#f97316] rounded-full animate-spin" /> : <CreditCard size={11} className="sm:w-3 sm:h-3" />}
+                              Оплатить
+                            </button>
+                          )}
                           {(order.status === 'Paid' || order.status === 'Delivered') && (
                             <button className="mt-1 sm:mt-1.5 flex items-center gap-1 text-[10px] sm:text-xs text-[#f97316] hover:text-[#ea580c] font-medium transition-colors ml-auto">
                               <Download size={11} className="sm:w-3 sm:h-3" /> Скачать
