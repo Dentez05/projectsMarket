@@ -8,6 +8,14 @@ import type { ApiProject, ApiCategory } from '../api/types';
 
 type View = 'list' | 'create' | 'edit';
 
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Б';
+  if (bytes < 1024) return `${bytes} Б`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} ГБ`;
+}
+
 export default function Admin() {
   const { projects, projectsLoaded } = useApp();
   const [view, setView] = useState<View>('list');
@@ -384,7 +392,7 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
                   <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-[#2a3244] rounded-lg text-xs text-white/50">
                     <FileArchive size={13} className="text-[#f97316]" />
                     <span className="truncate">{f.name}</span>
-                    <span className="text-white/30">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                    <span className="text-white/30">{formatFileSize(f.size)}</span>
                     <button type="button" onClick={() => removePendingFile(i)} className="ml-auto text-red-400 hover:text-red-300"><X size={12} /></button>
                   </div>
                 ))}
@@ -396,7 +404,7 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
                   <div key={f.id} className="flex items-center gap-2 px-3 py-1.5 bg-[#2a3244] rounded-lg text-xs text-white/50">
                     <FileArchive size={13} className="text-[#f97316]" />
                     <span className="truncate">{f.originalFileName}</span>
-                    <span className="text-white/30 ml-auto">{(f.fileSize / 1024 / 1024).toFixed(1)} MB</span>
+                    <span className="text-white/30 ml-auto">{formatFileSize(f.fileSize)}</span>
                     <button type="button" onClick={() => handleDeleteFile(f.id)} className="text-red-400 hover:text-red-300 ml-1"><X size={12} /></button>
                   </div>
                 ))}

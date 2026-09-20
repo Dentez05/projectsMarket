@@ -51,6 +51,14 @@ export default function Profile() {
     setPayingId(null);
   };
 
+  const getFileNameFromCD = (cd: string, fallback: string): string => {
+    const star = cd.match(/filename\*=UTF-8''([^;\n]+)/i);
+    if (star) return decodeURIComponent(star[1]);
+    const quoted = cd.match(/filename="?([^";\n]+)"?/);
+    if (quoted) return quoted[1];
+    return fallback;
+  };
+
   const handleDownload = async (orderId: number) => {
     const token = localStorage.getItem('token');
     const res = await fetch(`/api/Download/orders/${orderId}`, {
@@ -59,33 +67,32 @@ export default function Profile() {
     if (!res.ok) return;
     const ct = res.headers.get('content-type') || '';
     const cd = res.headers.get('content-disposition') || '';
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    if (ct.includes('application/zip')) {
-      const match = cd.match(/filename="?([^";\n]+)"?/);
-      a.download = match ? match[1] : `order_${orderId}_files.zip`;
-    } else if (ct.includes('application/json')) {
+    if (ct.includes('application/json')) {
       const files = await res.clone().json();
       for (const f of files) {
         const fileRes = await fetch(`/api/Download/files/${f.id}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         if (!fileRes.ok) continue;
+        const fileCd = fileRes.headers.get('content-disposition') || '';
         const fileBlob = await fileRes.blob();
         const fileUrl = URL.createObjectURL(fileBlob);
         const fileA = document.createElement('a');
         fileA.href = fileUrl;
-        fileA.download = f.originalFileName || `file_${f.id}`;
+        fileA.download = getFileNameFromCD(fileCd, f.originalFileName || `file_${f.id}`);
         fileA.click();
         URL.revokeObjectURL(fileUrl);
       }
-      URL.revokeObjectURL(url);
       return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    if (ct.includes('application/zip')) {
+      a.download = getFileNameFromCD(cd, `order_${orderId}_files.zip`);
     } else {
-      const match = cd.match(/filename="?([^";\n]+)"?/);
-      a.download = match ? match[1] : `order_${orderId}_files`;
+      a.download = getFileNameFromCD(cd, `order_${orderId}_files`);
     }
     a.click();
     URL.revokeObjectURL(url);
