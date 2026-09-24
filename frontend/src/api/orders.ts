@@ -8,4 +8,7 @@ export const ordersApi = {
 
   create: (comment?: string) =>
     api.post<ApiOrder>('/Orders', { comment: comment || null }),
+
+  updateStatus: (id: number, status: string) =>
+    api.patch<{ status: string }>(`/Orders/${id}/status`, { status }),
 };

@@ -46,12 +46,6 @@ export default function Login() {
         </div>
 
         <div className="bg-[#232a3b] border border-[#2e3548] rounded-2xl p-5 sm:p-8">
-          <div className="mb-4 sm:mb-5 p-2.5 sm:p-3 bg-[#f97316]/10 border border-[#f97316]/20 rounded-xl text-[10px] sm:text-xs text-[#f97316]">
-            <p className="font-semibold mb-0.5 sm:mb-1">Демо-аккаунты:</p>
-            <p>Пользователь: user@demo.com / demo123</p>
-            <p>Администратор: admin@projectsmarket.ru / Admin123</p>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
             <div>
               <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1 sm:mb-1.5">Email</label>

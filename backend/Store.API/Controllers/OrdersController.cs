@@ -51,6 +51,25 @@ namespace Store.API.Controllers
                 return NotFound();
             return Ok(order);
         }
+        [Authorize(Roles = "Admin")]
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderStatusRequest request)
+        {
+            var order = await _orderService.GetOrderByIdAsyncForAdmin(id);
+            if (order == null) return NotFound();
+
+            var validStatuses = new[] { "Pending", "Delivered", "Cancelled" };
+            if (!validStatuses.Contains(request.Status))
+                return BadRequest(new { error = "Недопустимый статус. Допустимые: Pending, Delivered, Cancelled" });
+
+            var entity = await _orderService.GetOrderEntityAsync(id);
+            if (entity == null) return NotFound();
+
+            entity.Status = request.Status;
+            await _orderService.UpdateOrderAsync(entity);
+            return Ok(new { status = entity.Status });
+        }
+
         private int GetUserId()
         {
             var userIdClaim = User.FindFirst("uid")?.Value;

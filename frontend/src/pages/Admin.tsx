@@ -1,12 +1,27 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import { categoriesApi } from '../api/categories';
+import { ordersApi } from '../api/orders';
 import { uploadApi, type ProjectFileResponse } from '../api/upload';
-import type { ApiProject, ApiCategory } from '../api/types';
+import type { ApiProject, ApiCategory, ApiOrder } from '../api/types';
 
 type View = 'list' | 'create' | 'edit';
+type Tab = 'projects' | 'orders';
+
+const STATUS_LABELS: Record<string, string> = {
+  Pending: 'Ожидает оплаты',
+  Delivered: 'Выдан',
+  Cancelled: 'Отменён',
+};
+
+const STATUS_COLORS: Record<string, string> = {
+  Pending: 'text-amber-400 bg-amber-500/10',
+  Delivered: 'text-green-400 bg-green-500/10',
+  Cancelled: 'text-red-400 bg-red-500/10',
+};
 
 function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Б';
@@ -17,12 +32,16 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function Admin() {
-  const { projects, projectsLoaded } = useApp();
+  const { projects, projectsLoaded, user } = useApp();
+  const navigate = useNavigate();
   const [view, setView] = useState<View>('list');
+  const [tab, setTab] = useState<Tab>('projects');
   const [filterCategory, setFilterCategory] = useState('Все');
   const [projectList, setProjectList] = useState<ApiProject[]>([]);
   const [editingProject, setEditingProject] = useState<ApiProject | null>(null);
   const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
 
   useEffect(() => {
     setProjectList(projects);
@@ -31,6 +50,19 @@ export default function Admin() {
   useEffect(() => {
     categoriesApi.getAll().then(setCategories).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (tab === 'orders') {
+      setOrdersLoading(true);
+      ordersApi.getAll().then(setOrders).catch(() => {}).finally(() => setOrdersLoading(false));
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    if (user && user.role !== 'admin') navigate('/');
+  }, [user, navigate]);
+
+  if (!user || user.role !== 'admin') return null;
 
   const allCategories = useMemo(() => {
     const fromProjects = projectList.map(p => p.categoryName).filter(Boolean);
@@ -66,6 +98,13 @@ export default function Admin() {
     setEditingProject(null);
   };
 
+  const handleStatusUpdate = async (orderId: number, newStatus: string) => {
+    try {
+      await ordersApi.updateStatus(orderId, newStatus);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    } catch {}
+  };
+
   if (view === 'create') {
     return <ProjectForm onBack={() => setView('list')} onCreated={handleCreated} categories={categories} />;
   }
@@ -80,13 +119,27 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">Панель управления</h1>
-            <button onClick={() => setView('create')} className="btn-primary flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg flex-shrink-0">
-              <Plus size={15} className="sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Создать проект</span><span className="sm:hidden">Создать</span>
+            {tab === 'projects' && (
+              <button onClick={() => setView('create')} className="btn-primary flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg flex-shrink-0">
+                <Plus size={15} className="sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Создать проект</span><span className="sm:hidden">Создать</span>
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button onClick={() => setTab('projects')}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${tab === 'projects' ? 'bg-[#f97316] text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
+              Проекты
+            </button>
+            <button onClick={() => setTab('orders')}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${tab === 'orders' ? 'bg-[#f97316] text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
+              <Package size={15} /> Заказы
             </button>
           </div>
         </div>
       </div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
+        {tab === 'projects' && (
+          <>
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 mb-5 sm:mb-6 scrollbar-hide">
           <button onClick={() => setFilterCategory('Все')}
             className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterCategory === 'Все' ? 'bg-[#f97316] text-white' : 'bg-[#232a3b] border border-[#2e3548] text-white/60 hover:border-[#f97316]/30'}`}>Все</button>
@@ -159,6 +212,83 @@ export default function Admin() {
             </div>
           ))}
         </div>
+          </>
+        )}
+
+        {tab === 'orders' && (
+          <>
+            {ordersLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-8 h-8 border-2 border-white/20 border-t-[#f97316] rounded-full animate-spin" />
+              </div>
+            ) : orders.length === 0 ? (
+              <div className="text-center py-12">
+                <Package size={48} className="mx-auto text-white/10 mb-4" />
+                <p className="text-white/40 text-sm">Заказов пока нет</p>
+              </div>
+            ) : (
+              <>
+                <div className="hidden sm:block bg-[#232a3b] rounded-xl border border-[#2e3548] overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-[#2a3244] border-b border-[#2e3548]">
+                      <tr>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase">ID</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase">Номер</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase hidden md:table-cell">Товары</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase">Сумма</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase">Статус</th>
+                        <th className="text-right px-5 py-3 text-xs font-semibold text-white/40 uppercase">Действия</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#2e3548]">
+                      {orders.sort((a, b) => b.id - a.id).map(o => (
+                        <tr key={o.id} className="hover:bg-[#2a3244] transition-colors">
+                          <td className="px-5 py-3.5 text-sm text-white/40">#{o.id}</td>
+                          <td className="px-5 py-3.5 text-sm text-white/60 font-mono">{o.orderNumber}</td>
+                          <td className="px-5 py-3.5 text-sm text-white/50 hidden md:table-cell max-w-[200px] truncate">{o.items.map(i => i.title).join(', ')}</td>
+                          <td className="px-5 py-3.5 text-sm font-semibold text-white">{o.totalAmount.toLocaleString('ru-RU')} &#8381;</td>
+                          <td className="px-5 py-3.5">
+                            <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.status] || 'text-white/40 bg-white/5'}`}>
+                              {STATUS_LABELS[o.status] || o.status}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex justify-end gap-1">
+                              {o.status === 'Pending' && (
+                                <button onClick={() => handleStatusUpdate(o.id, 'Cancelled')} className="px-2.5 py-1 text-[10px] font-medium text-red-400 hover:bg-red-500/10 rounded-lg border border-red-500/20 transition-colors">Отменить</button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="sm:hidden space-y-2.5">
+                  {orders.sort((a, b) => b.id - a.id).map(o => (
+                    <div key={o.id} className="bg-[#232a3b] rounded-xl border border-[#2e3548] p-3.5">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-white/40 font-mono">{o.orderNumber}</span>
+                        <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.status] || 'text-white/40 bg-white/5'}`}>
+                          {STATUS_LABELS[o.status] || o.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-white/50 mb-1">{o.items.map(i => i.title).join(', ')}</p>
+                      <div className="flex items-center justify-between mt-2">
+                        <span className="text-sm font-semibold text-white">{o.totalAmount.toLocaleString('ru-RU')} &#8381;</span>
+                        <div className="flex gap-1">
+                          {o.status === 'Pending' && (
+                            <button onClick={() => handleStatusUpdate(o.id, 'Cancelled')} className="px-2.5 py-1 text-[10px] font-medium text-red-400 hover:bg-red-500/10 rounded-lg border border-red-500/20 transition-colors">Отменить</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

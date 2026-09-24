@@ -7,8 +7,8 @@ import { useState, useEffect } from 'react';
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   Pending: { label: 'Ожидает оплаты', color: 'text-amber-400 bg-amber-500/10' },
-  Paid: { label: 'Оплачен', color: 'text-blue-400 bg-blue-500/10' },
   Delivered: { label: 'Доставлен', color: 'text-green-400 bg-green-500/10' },
+  Cancelled: { label: 'Отменён', color: 'text-red-400 bg-red-500/10' },
 };
 
 export default function Profile() {
@@ -22,7 +22,7 @@ export default function Profile() {
     pending.forEach(async (o) => {
       try {
         const { status } = await paymentsApi.checkOrderStatus(o.id);
-        if (status === 'Paid') await refreshOrders();
+        if (status === 'Delivered') await refreshOrders();
       } catch {}
     });
   }, [user, orders, refreshOrders]);
@@ -166,7 +166,7 @@ export default function Profile() {
                               Оплатить
                             </button>
                           )}
-                          {(order.status === 'Paid' || order.status === 'Delivered') && (
+                          {order.status === 'Delivered' && (
                             <button onClick={() => handleDownload(order.id)} className="mt-1 sm:mt-1.5 flex items-center gap-1 text-[10px] sm:text-xs text-[#f97316] hover:text-[#ea580c] font-medium transition-colors ml-auto">
                               <Download size={11} className="sm:w-3 sm:h-3" /> Скачать
                             </button>

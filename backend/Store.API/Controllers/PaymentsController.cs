@@ -50,7 +50,7 @@ namespace Store.API.Controllers
             if (order == null)
                 return NotFound("Заказ не найден");
 
-            if (order.Status == "Paid")
+            if (order.Status == "Delivered")
             {
                 return Ok(new { message = "Заказ успешно оплачен", orderId, status = order.Status });
             }
@@ -61,7 +61,7 @@ namespace Store.API.Controllers
                 if (paymentStatus == "succeeded")
                 {
                     await _orderService.MarkOrderAsPaidAsync(orderId);
-                    return Ok(new { message = "Заказ успешно оплачен", orderId, status = "Paid" });
+                    return Ok(new { message = "Заказ успешно оплачен", orderId, status = "Delivered" });
                 }
             }
 
@@ -78,8 +78,8 @@ namespace Store.API.Controllers
             if (order == null)
                 return NotFound();
 
-            if (order.Status == "Paid")
-                return Ok(new { status = "Paid" });
+            if (order.Status == "Delivered")
+                return Ok(new { status = "Delivered" });
 
             if (!string.IsNullOrEmpty(order.PaymentId))
             {
@@ -87,7 +87,7 @@ namespace Store.API.Controllers
                 if (paymentStatus == "succeeded")
                 {
                     await _orderService.MarkOrderAsPaidAsync(orderId);
-                    return Ok(new { status = "Paid" });
+                    return Ok(new { status = "Delivered" });
                 }
             }
 

@@ -39,7 +39,7 @@ namespace Store.API.Controllers
             if (!isAdmin && order.UserId != userId)
                 return Forbid();
 
-            if (order.Status != "Paid" && order.Status != "Delivered")
+            if (order.Status != "Delivered")
                 return BadRequest(new { message = "Заказ ещё не оплачен" });
 
             var projectIds = order.OrderItems.Select(oi => oi.ProjectId).ToList();
@@ -108,7 +108,7 @@ namespace Store.API.Controllers
             // Check if user has paid for this project
             var hasPaid = await _context.Orders
                 .AnyAsync(o => o.UserId == userId &&
-                              (o.Status == "Paid" || o.Status == "Delivered") &&
+                              o.Status == "Delivered" &&
                               o.OrderItems.Any(oi => oi.ProjectId == file.ProjectId));
 
             if (!hasPaid && !isAdmin)

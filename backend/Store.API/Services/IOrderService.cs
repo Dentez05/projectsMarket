@@ -10,6 +10,7 @@ namespace Store.API.Services
         Task<List<OrderResponse>> GetUserOrdersAsync(int userId, bool isAdmin);
         Task<OrderResponse?> GetOrderByIdAsyncForAdmin(int orderId);
         Task<OrderResponse?> GetOrderByIdAsync(int userId, int orderId, bool isAdmin);
+        Task<Order?> GetOrderEntityAsync(int orderId);
         Task UpdateOrderAsync(Order order);
         Task MarkOrderAsPaidAsync(int orderId);
     }

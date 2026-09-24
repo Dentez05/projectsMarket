@@ -4,6 +4,7 @@ using Auth.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using System.Collections.Concurrent;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,7 +13,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReact", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "http://localhost:5010",
+                "http://localhost:3000")
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -55,20 +59,49 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseAuthentication();  
-app.UseAuthorization();  
+
+var loginAttempts = new ConcurrentDictionary<string, (int Count, DateTime WindowStart)>();
+const int MaxLoginAttempts = 10;
+const int WindowMinutes = 5;
+
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value?.ToLower() ?? "";
+    if ((path.Contains("/api/auth/login") || path.Contains("/api/auth/register"))
+        && context.Request.Method == "POST")
+    {
+        var ip = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var now = DateTime.UtcNow;
+        var key = $"{ip}:{(path.Contains("login") ? "login" : "register")}";
+
+        var entry = loginAttempts.AddOrUpdate(key,
+            _ => (1, now),
+            (_, existing) =>
+            {
+                if ((now - existing.WindowStart).TotalMinutes > WindowMinutes)
+                    return (1, now);
+                existing.Count++;
+                return existing;
+            });
+
+        if (entry.Count > MaxLoginAttempts)
+        {
+            context.Response.StatusCode = 429;
+            await context.Response.WriteAsJsonAsync(new { message = "Слишком много попыток. Попробуйте через 5 минут." });
+            return;
+        }
+    }
+    await next();
+});
+
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
     dbContext.Database.Migrate();
-}
-
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
-    dbContext.Database.EnsureCreated();
 
     if (!dbContext.Users.Any(u => u.Role == "Admin"))
     {
@@ -76,7 +109,7 @@ using (var scope = app.Services.CreateScope())
         {
             Email = "admin@projectsmarket.ru",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin123"),
-            FullName = "�������������",
+            FullName = "Администратор",
             Role = "Admin",
             CreatedAt = DateTime.UtcNow
         };
@@ -84,9 +117,9 @@ using (var scope = app.Services.CreateScope())
         dbContext.SaveChanges();
 
         Console.WriteLine("==========================================");
-        Console.WriteLine("������������� ������:");
+        Console.WriteLine("Создан администратор:");
         Console.WriteLine("Email: admin@projectsmarket.ru");
-        Console.WriteLine("������: Admin123");
+        Console.WriteLine("Пароль: Admin123");
         Console.WriteLine("==========================================");
     }
 }

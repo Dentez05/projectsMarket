@@ -156,9 +156,9 @@ namespace Store.API.Services
                 return;
             }
 
-            if (order.Status != "Paid")
+            if (order.Status != "Delivered")
             {
-                order.Status = "Paid";
+                order.Status = "Delivered";
                 order.PaidAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("Заказ {OrderNumber} оплачен", order.OrderNumber);

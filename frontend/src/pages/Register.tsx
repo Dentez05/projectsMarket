@@ -1,25 +1,58 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../store/AppContext';
+
+function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
+  if (!pw) return { score: 0, label: '', color: '' };
+  let score = 0;
+  if (pw.length >= 6) score++;
+  if (pw.length >= 10) score++;
+  if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+  if (score <= 1) return { score, label: 'Слабый', color: 'bg-red-500' };
+  if (score <= 2) return { score, label: 'Средний', color: 'bg-amber-500' };
+  if (score <= 3) return { score, label: 'Хороший', color: 'bg-blue-500' };
+  return { score, label: 'Сильный', color: 'bg-green-500' };
+}
 
 export default function Register() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useApp();
   const navigate = useNavigate();
 
+  const strength = useMemo(() => getPasswordStrength(password), [password]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (name.trim().length < 2) {
+      setError('Имя должно содержать минимум 2 символа');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Пароль должен содержать минимум 6 символов');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Пароли не совпадают');
+      return;
+    }
+
     setLoading(true);
     const ok = await register(name, email, password);
     if (ok) navigate('/profile');
-    else setError('Ошибка регистрации. Попробуйте другой email.');
+    else setError('Ошибка регистрации. Возможно, этот email уже занят.');
     setLoading(false);
   };
 
@@ -67,9 +100,38 @@ export default function Register() {
                   {showPw ? <EyeOff size={14} className="sm:w-[15px] sm:h-[15px]" /> : <Eye size={14} className="sm:w-[15px] sm:h-[15px]" />}
                 </button>
               </div>
+              {password && (
+                <div className="mt-1.5">
+                  <div className="flex gap-1 mb-1">
+                    {[1, 2, 3, 4, 5].map(i => (
+                      <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= strength.score ? strength.color : 'bg-white/10'}`} />
+                    ))}
+                  </div>
+                  <p className={`text-[10px] sm:text-xs ${strength.score <= 1 ? 'text-red-400' : strength.score <= 2 ? 'text-amber-400' : strength.score <= 3 ? 'text-blue-400' : 'text-green-400'}`}>
+                    {strength.label}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1 sm:mb-1.5">Подтвердите пароль</label>
+              <div className="relative">
+                <input type={showConfirmPw ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="Повторите пароль" required minLength={6}
+                  className={`w-full px-3.5 sm:px-4 py-2.5 bg-[#2a3244] border rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 transition-all pr-10 ${
+                    confirmPassword && password !== confirmPassword
+                      ? 'border-red-500/50 focus:ring-red-500/30 focus:border-red-500/50'
+                      : 'border-[#2e3548] focus:ring-[#f97316]/30 focus:border-[#f97316]/50'
+                  }`} />
+                <button type="button" onClick={() => setShowConfirmPw(!showConfirmPw)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60">
+                  {showConfirmPw ? <EyeOff size={14} className="sm:w-[15px] sm:h-[15px]" /> : <Eye size={14} className="sm:w-[15px] sm:h-[15px]" />}
+                </button>
+              </div>
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-[10px] sm:text-xs text-red-400 mt-1">Пароли не совпадают</p>
+              )}
             </div>
             {error && <p className="text-xs sm:text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">{error}</p>}
-            <button type="submit" disabled={loading} className="btn-primary w-full py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-xl text-sm sm:text-base">
+            <button type="submit" disabled={loading || (password.length >= 6 && password !== confirmPassword)} className="btn-primary w-full py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-xl text-sm sm:text-base disabled:opacity-50 disabled:cursor-not-allowed">
               {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
               {loading ? 'Регистрация...' : 'Зарегистрироваться'}
             </button>

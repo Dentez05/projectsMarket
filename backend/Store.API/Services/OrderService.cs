@@ -109,13 +109,18 @@ namespace Store.API.Services
             await _orderRepository.SaveChangesAsync();
         }
 
+        public async Task<Order?> GetOrderEntityAsync(int orderId)
+        {
+            return await _orderRepository.GetOrderByIdAsync(orderId);
+        }
+
         public async Task MarkOrderAsPaidAsync(int orderId)
         {
             var order = await _orderRepository.GetOrderByIdAsync(orderId);
             if (order == null)
                 throw new ArgumentException("Заказ не найден");
 
-            order.Status = "Paid";
+            order.Status = "Delivered";
             order.PaidAt = DateTime.UtcNow;
             await _orderRepository.SaveChangesAsync();
         }
