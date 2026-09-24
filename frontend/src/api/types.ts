@@ -81,6 +81,8 @@ export interface ApiOrder {
   status: string;
   createdAt: string;
   paymentId: string | null;
+  userName: string;
+  userEmail: string;
   items: ApiOrderItem[];
 }
 

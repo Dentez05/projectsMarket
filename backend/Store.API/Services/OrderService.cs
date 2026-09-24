@@ -25,7 +25,7 @@ namespace Store.API.Services
             _logger = logger;
         }
 
-        public async Task<OrderResponse> CreateOrderFromCartAsync(int userId, CreateOrderRequest request)
+        public async Task<OrderResponse> CreateOrderFromCartAsync(int userId, string userName, string userEmail, CreateOrderRequest request)
         {
             var cartItems = await _cartRepository.GetUserCartAsync(userId);
             if (!cartItems.Any())
@@ -36,6 +36,8 @@ namespace Store.API.Services
             var order = new Order
             {
                 UserId = userId,
+                UserName = userName,
+                UserEmail = userEmail,
                 OrderNumber = GenerateOrderNumber(),
                 TotalAmount = totalAmount,
                 Status = "Pending",
@@ -140,6 +142,8 @@ namespace Store.API.Services
                 Status = order.Status,
                 CreatedAt = order.CreatedAt,
                 PaymentId = order.PaymentId,
+                UserName = order.UserName,
+                UserEmail = order.UserEmail,
                 Items = order.OrderItems.Select(oi => new OrderItemResponse
                 {
                     ProjectId = oi.ProjectId,

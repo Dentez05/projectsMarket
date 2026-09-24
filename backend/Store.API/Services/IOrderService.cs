@@ -6,7 +6,7 @@ namespace Store.API.Services
 {
     public interface IOrderService
     {
-        Task<OrderResponse> CreateOrderFromCartAsync(int userId, CreateOrderRequest request);
+        Task<OrderResponse> CreateOrderFromCartAsync(int userId, string userName, string userEmail, CreateOrderRequest request);
         Task<List<OrderResponse>> GetUserOrdersAsync(int userId, bool isAdmin);
         Task<OrderResponse?> GetOrderByIdAsyncForAdmin(int orderId);
         Task<OrderResponse?> GetOrderByIdAsync(int userId, int orderId, bool isAdmin);

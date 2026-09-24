@@ -12,7 +12,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function Profile() {
-  const { user, orders, logout, refreshOrders } = useApp();
+  const { user, orders, logout, refreshOrders, authReady } = useApp();
   const navigate = useNavigate();
   const [payingId, setPayingId] = useState<number | null>(null);
 
@@ -26,6 +26,14 @@ export default function Profile() {
       } catch {}
     });
   }, [user, orders, refreshOrders]);
+
+  if (!authReady) {
+    return (
+      <div className="pt-14 sm:pt-20 lg:pt-24 flex justify-center py-20">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-[#f97316] rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!user) {
     return (

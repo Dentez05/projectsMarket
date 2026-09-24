@@ -32,5 +32,11 @@ namespace Store.API.Models.Entities
         public DateTime? PaidAt { get; set; }
 
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
+
+        [MaxLength(100)]
+        public string UserName { get; set; } = string.Empty;
+
+        [MaxLength(256)]
+        public string UserEmail { get; set; } = string.Empty;
     }
 }

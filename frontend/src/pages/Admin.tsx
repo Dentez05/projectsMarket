@@ -32,7 +32,7 @@ function formatFileSize(bytes: number): string {
 }
 
 export default function Admin() {
-  const { projects, projectsLoaded, user } = useApp();
+  const { projects, projectsLoaded, user, authReady } = useApp();
   const navigate = useNavigate();
   const [view, setView] = useState<View>('list');
   const [tab, setTab] = useState<Tab>('projects');
@@ -59,10 +59,8 @@ export default function Admin() {
   }, [tab]);
 
   useEffect(() => {
-    if (user && user.role !== 'admin') navigate('/');
-  }, [user, navigate]);
-
-  if (!user || user.role !== 'admin') return null;
+    if (authReady && user && user.role !== 'admin') navigate('/', { replace: true });
+  }, [authReady, user, navigate]);
 
   const allCategories = useMemo(() => {
     const fromProjects = projectList.map(p => p.categoryName).filter(Boolean);
@@ -70,6 +68,16 @@ export default function Admin() {
     const merged = [...new Set([...fromProjects, ...fromDb])];
     return ['Все', ...merged];
   }, [projectList, categories]);
+
+  if (!authReady) {
+    return (
+      <div className="pt-14 sm:pt-20 lg:pt-24 flex justify-center py-20">
+        <div className="w-8 h-8 border-2 border-white/20 border-t-[#f97316] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user || user.role !== 'admin') return null;
 
   const filtered = (filterCategory === 'Все' ? projectList : projectList.filter(p => p.categoryName === filterCategory))
     .sort((a, b) => b.id - a.id);
@@ -234,6 +242,7 @@ export default function Admin() {
                       <tr>
                         <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase">ID</th>
                         <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase">Номер</th>
+                        <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase hidden lg:table-cell">Покупатель</th>
                         <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase hidden md:table-cell">Товары</th>
                         <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase">Сумма</th>
                         <th className="text-left px-5 py-3 text-xs font-semibold text-white/40 uppercase">Статус</th>
@@ -245,7 +254,13 @@ export default function Admin() {
                         <tr key={o.id} className="hover:bg-[#2a3244] transition-colors">
                           <td className="px-5 py-3.5 text-sm text-white/40">#{o.id}</td>
                           <td className="px-5 py-3.5 text-sm text-white/60 font-mono">{o.orderNumber}</td>
-                          <td className="px-5 py-3.5 text-sm text-white/50 hidden md:table-cell max-w-[200px] truncate">{o.items.map(i => i.title).join(', ')}</td>
+                          <td className="px-5 py-3.5 hidden lg:table-cell">
+                            <div className="min-w-0">
+                              <p className="text-sm text-white truncate">{o.userName || '—'}</p>
+                              <p className="text-xs text-white/40 truncate">{o.userEmail}</p>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3.5 text-sm text-white/50 hidden md:table-cell max-w-[180px] truncate">{o.items.map(i => i.title).join(', ')}</td>
                           <td className="px-5 py-3.5 text-sm font-semibold text-white">{o.totalAmount.toLocaleString('ru-RU')} &#8381;</td>
                           <td className="px-5 py-3.5">
                             <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_COLORS[o.status] || 'text-white/40 bg-white/5'}`}>
@@ -273,6 +288,8 @@ export default function Admin() {
                           {STATUS_LABELS[o.status] || o.status}
                         </span>
                       </div>
+                      <p className="text-xs font-medium text-white">{o.userName || '—'}</p>
+                      <p className="text-[10px] text-white/40 mb-1">{o.userEmail}</p>
                       <p className="text-xs text-white/50 mb-1">{o.items.map(i => i.title).join(', ')}</p>
                       <div className="flex items-center justify-between mt-2">
                         <span className="text-sm font-semibold text-white">{o.totalAmount.toLocaleString('ru-RU')} &#8381;</span>

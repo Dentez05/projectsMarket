@@ -52,6 +52,8 @@ namespace Store.API.Data
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.OrderNumber).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.TotalAmount).HasColumnType("decimal(10,2)");
+                entity.Property(e => e.UserName).HasMaxLength(100);
+                entity.Property(e => e.UserEmail).HasMaxLength(256);
                 entity.HasIndex(e => e.UserId);
                 entity.HasIndex(e => e.OrderNumber).IsUnique();
                 entity.HasIndex(e => e.Status);

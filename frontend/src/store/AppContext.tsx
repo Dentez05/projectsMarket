@@ -26,6 +26,8 @@ export interface Order {
   status: string;
   createdAt: string;
   paymentId?: string;
+  userName?: string;
+  userEmail?: string;
   items: { projectId: number; title: string; price: number }[];
 }
 
@@ -35,6 +37,7 @@ interface AppState {
   orders: Order[];
   projects: ApiProject[];
   projectsLoaded: boolean;
+  authReady: boolean;
   addToCart: (project: ApiProject) => Promise<boolean>;
   removeFromCart: (projectId: number) => Promise<void>;
   isInCart: (projectId: number) => boolean;
@@ -54,6 +57,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
 
   const projectMap = useMemo(() => new Map(projects.map(p => [p.id, p])), [projects]);
   const projectMapRef = useRef(projectMap);
@@ -77,7 +81,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!token) { setAuthReady(true); return; }
     authApi.getProfile()
       .then(data => {
         setUser({
@@ -87,7 +91,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           role: data.role.toLowerCase() as 'user' | 'admin',
         });
       })
-      .catch(() => { localStorage.removeItem('token'); });
+      .catch(() => { localStorage.removeItem('token'); })
+      .finally(() => setAuthReady(true));
   }, []);
 
   useEffect(() => {
@@ -116,6 +121,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         status: o.status,
         createdAt: o.createdAt,
         paymentId: o.paymentId ?? undefined,
+        userName: o.userName,
+        userEmail: o.userEmail,
         items: o.items,
       })));
     } catch {}
@@ -204,7 +211,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      cart, user, orders, projects, projectsLoaded,
+      cart, user, orders, projects, projectsLoaded, authReady,
       addToCart, removeFromCart, isInCart,
       login, register, logout, checkout,
       refreshOrders, refreshCart,

@@ -93,6 +93,7 @@ namespace Auth.API.Services
             var claims = new[]
             {
                 new Claim("uid", user.Id.ToString()),
+                new Claim("name", user.FullName),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Role, user.Role)
             };

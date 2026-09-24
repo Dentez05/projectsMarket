@@ -23,7 +23,10 @@ namespace Store.API.Controllers
         public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
         {
             var userId = GetUserId();
-            var order = await _orderService.CreateOrderFromCartAsync(userId, request);
+            var userName = User.FindFirst("name")?.Value ?? "";
+            var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
+                         ?? User.FindFirst("email")?.Value ?? "";
+            var order = await _orderService.CreateOrderFromCartAsync(userId, userName, userEmail, request);
             return CreatedAtAction(nameof(GetOrderById), new { id = order.Id}, order);
         }
 
