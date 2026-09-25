@@ -11,6 +11,7 @@ import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Admin from './pages/Admin';
+import Support from './pages/Support';
 import NotFound from './pages/NotFound';
 
 function ScrollToTop() {
@@ -42,6 +43,7 @@ export default function App() {
           <Route path="/projects/:id" element={<Layout><ProjectDetail /></Layout>} />
           <Route path="/cart" element={<Layout><Cart /></Layout>} />
           <Route path="/profile" element={<Layout><Profile /></Layout>} />
+          <Route path="/support" element={<Layout><Support /></Layout>} />
           <Route path="/admin" element={<Layout><Admin /></Layout>} />
           <Route path="*" element={<Layout><NotFound /></Layout>} />
         </Routes>

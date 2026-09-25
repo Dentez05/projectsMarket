@@ -1,18 +1,19 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import { categoriesApi } from '../api/categories';
 import { ordersApi } from '../api/orders';
+import { supportApi } from '../api/support';
 import { uploadApi, type ProjectFileResponse } from '../api/upload';
-import type { ApiProject, ApiCategory, ApiOrder } from '../api/types';
+import type { ApiProject, ApiCategory, ApiOrder, ApiSupportTicket } from '../api/types';
 import Pagination from '../components/Pagination';
 
 const PAGE_SIZE = 10;
 
 type View = 'list' | 'create' | 'edit';
-type Tab = 'projects' | 'orders';
+type Tab = 'projects' | 'orders' | 'support';
 
 const STATUS_LABELS: Record<string, string> = {
   Pending: 'Ожидает оплаты',
@@ -47,6 +48,10 @@ export default function Admin() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [projectsPage, setProjectsPage] = useState(1);
   const [ordersPage, setOrdersPage] = useState(1);
+  const [tickets, setTickets] = useState<ApiSupportTicket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<number | null>(null);
+  const [replyText, setReplyText] = useState('');
 
   useEffect(() => {
     setProjectList(projects);
@@ -60,6 +65,13 @@ export default function Admin() {
     if (tab === 'orders') {
       setOrdersLoading(true);
       ordersApi.getAll().then(setOrders).catch(() => {}).finally(() => setOrdersLoading(false));
+    }
+  }, [tab]);
+
+  useEffect(() => {
+    if (tab === 'support') {
+      setTicketsLoading(true);
+      supportApi.getAll().then(setTickets).catch(() => {}).finally(() => setTicketsLoading(false));
     }
   }, [tab]);
 
@@ -130,6 +142,23 @@ export default function Admin() {
     } catch {}
   };
 
+  const handleReply = async (ticketId: number) => {
+    if (!replyText.trim()) return;
+    try {
+      const updated = await supportApi.reply(ticketId, replyText.trim());
+      setTickets(prev => prev.map(t => t.id === ticketId ? updated : t));
+      setReplyingTo(null);
+      setReplyText('');
+    } catch {}
+  };
+
+  const handleCloseTicket = async (ticketId: number) => {
+    try {
+      const updated = await supportApi.close(ticketId);
+      setTickets(prev => prev.map(t => t.id === ticketId ? updated : t));
+    } catch {}
+  };
+
   if (view === 'create') {
     return <ProjectForm onBack={() => setView('list')} onCreated={handleCreated} categories={categories} />;
   }
@@ -158,6 +187,15 @@ export default function Admin() {
             <button onClick={() => setTab('orders')}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${tab === 'orders' ? 'bg-[#f97316] text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
               <Package size={15} /> Заказы
+            </button>
+            <button onClick={() => setTab('support')}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${tab === 'support' ? 'bg-[#f97316] text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
+              <LifeBuoy size={15} /> Поддержка
+              {tickets.filter(t => t.status === 'Open').length > 0 && (
+                <span className="w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                  {tickets.filter(t => t.status === 'Open').length}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -322,6 +360,96 @@ export default function Admin() {
                 </div>
                 <Pagination page={safeOrdersPage} totalPages={ordersTotalPages} onPageChange={setOrdersPage} />
               </>
+            )}
+          </>
+        )}
+
+        {tab === 'support' && (
+          <>
+            {ticketsLoading ? (
+              <div className="flex justify-center py-12">
+                <div className="w-8 h-8 border-2 border-white/20 border-t-[#f97316] rounded-full animate-spin" />
+              </div>
+            ) : tickets.length === 0 ? (
+              <div className="text-center py-12">
+                <LifeBuoy size={48} className="mx-auto text-white/10 mb-4" />
+                <p className="text-white/40 text-sm">Обращений пока нет</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {tickets.map(t => {
+                  const statusInfo = t.status === 'Open'
+                    ? { label: 'Открыто', color: 'text-amber-400 bg-amber-500/10', icon: <Clock size={12} /> }
+                    : t.status === 'Answered'
+                    ? { label: 'Отвечено', color: 'text-green-400 bg-green-500/10', icon: <CheckCircle size={12} /> }
+                    : { label: 'Закрыто', color: 'text-white/40 bg-white/5', icon: <XCircle size={12} /> };
+                  return (
+                    <div key={t.id} className="bg-[#232a3b] rounded-xl border border-[#2e3548] p-4 sm:p-5">
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-semibold text-white">{t.subject}</span>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${statusInfo.color}`}>
+                              {statusInfo.icon} {statusInfo.label}
+                            </span>
+                          </div>
+                          <p className="text-xs text-white/40 mt-1">
+                            {t.userName} · {t.userEmail} · {new Date(t.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-white/50 mb-3 leading-relaxed">{t.message}</p>
+
+                      {t.adminReply && (
+                        <div className="bg-[#2a3244] rounded-lg p-3 border-l-2 border-[#f97316] mb-3">
+                          <p className="text-[10px] font-semibold text-[#f97316] uppercase mb-1">Ваш ответ</p>
+                          <p className="text-xs text-white/60">{t.adminReply}</p>
+                          {t.repliedAt && (
+                            <p className="text-[10px] text-white/30 mt-1">{new Date(t.repliedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {t.status !== 'Closed' && replyingTo !== t.id && (
+                          <button onClick={() => { setReplyingTo(t.id); setReplyText(''); }}
+                            className="px-3 py-1.5 text-xs font-medium text-[#f97316] hover:bg-[#f97316]/10 rounded-lg border border-[#f97316]/20 transition-colors flex items-center gap-1.5">
+                            <Send size={12} /> {t.adminReply ? 'Ответить снова' : 'Ответить'}
+                          </button>
+                        )}
+                        {t.status !== 'Closed' && (
+                          <button onClick={() => handleCloseTicket(t.id)}
+                            className="px-3 py-1.5 text-xs font-medium text-white/50 hover:bg-white/5 rounded-lg border border-[#2e3548] transition-colors">
+                            Закрыть
+                          </button>
+                        )}
+                      </div>
+
+                      {replyingTo === t.id && (
+                        <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                          <textarea
+                            value={replyText}
+                            onChange={e => setReplyText(e.target.value)}
+                            placeholder="Введите ответ..."
+                            rows={3}
+                            className="flex-1 px-3 py-2.5 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316] resize-y"
+                          />
+                          <div className="flex sm:flex-col gap-2">
+                            <button onClick={() => handleReply(t.id)} disabled={!replyText.trim()}
+                              className="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 justify-center disabled:opacity-50">
+                              <Send size={13} /> Отправить
+                            </button>
+                            <button onClick={() => { setReplyingTo(null); setReplyText(''); }}
+                              className="px-4 py-2.5 text-sm font-medium text-white/50 hover:bg-white/5 rounded-lg transition-colors justify-center">
+                              Отмена
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </>
         )}

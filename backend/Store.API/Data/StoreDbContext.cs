@@ -16,6 +16,7 @@ namespace Store.API.Data
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<CartItem> CartItems { get; set; }
         public DbSet<ProjectFile> ProjectFiles { get; set; }
+        public DbSet<SupportTicket> SupportTickets { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -99,6 +100,20 @@ namespace Store.API.Data
                     .WithMany(p => p.ProjectFiles)
                     .HasForeignKey(e => e.ProjectId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<SupportTicket>(entity =>
+            {
+                entity.ToTable("support_tickets");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.UserName).HasMaxLength(100);
+                entity.Property(e => e.UserEmail).HasMaxLength(256);
+                entity.Property(e => e.Subject).IsRequired().HasMaxLength(200);
+                entity.Property(e => e.Message).IsRequired().HasMaxLength(4000);
+                entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
+                entity.Property(e => e.AdminReply).HasMaxLength(4000);
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.Status);
             });
         }
 

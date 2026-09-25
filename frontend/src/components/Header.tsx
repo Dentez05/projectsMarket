@@ -44,6 +44,7 @@ export default function Header() {
 
           <nav className="hidden md:flex items-center gap-6 lg:gap-8">
             <Link to="/projects" className="text-white/80 hover:text-[#f97316] font-semibold transition-colors text-sm lg:text-base">Проекты</Link>
+            <Link to="/support" className="text-white/80 hover:text-[#f97316] font-semibold transition-colors text-sm lg:text-base">Поддержка</Link>
             {user?.role === 'admin' && (
               <Link to="/admin" className="text-white/80 hover:text-[#f97316] font-semibold transition-colors text-sm lg:text-base">Панель</Link>
             )}
@@ -107,6 +108,7 @@ export default function Header() {
         {mobileOpen && (
           <div className="md:hidden border-t border-[#2e3548] py-3 space-y-1">
             <Link to="/projects" className="block px-3 py-2.5 text-white/80 font-semibold text-base hover:bg-white/5 rounded-lg" onClick={() => setMobileOpen(false)}>Проекты</Link>
+            <Link to="/support" className="block px-3 py-2.5 text-white/80 font-semibold text-base hover:bg-white/5 rounded-lg" onClick={() => setMobileOpen(false)}>Поддержка</Link>
             {user?.role === 'admin' && (
               <Link to="/admin" className="block px-3 py-2.5 text-white/80 font-semibold text-base hover:bg-white/5 rounded-lg" onClick={() => setMobileOpen(false)}>Панель</Link>
             )}

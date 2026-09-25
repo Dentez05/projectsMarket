@@ -92,3 +92,17 @@ export interface ApiPaymentResponse {
   confirmationUrl: string;
   status: string;
 }
+
+// ─── Support ────────────────────────────────────────────
+export interface ApiSupportTicket {
+  id: number;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  subject: string;
+  message: string;
+  status: 'Open' | 'Answered' | 'Closed';
+  adminReply: string | null;
+  createdAt: string;
+  repliedAt: string | null;
+}

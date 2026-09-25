@@ -63,6 +63,7 @@ export default function Footer() {
             <h4 className="text-white font-semibold mb-3 sm:mb-4 text-sm">Информация</h4>
             <ul className="space-y-2 sm:space-y-2.5 text-sm">
               <li><Link to="/projects" className="hover:text-[#f97316] transition-colors">Все проекты</Link></li>
+              <li><Link to="/support" className="hover:text-[#f97316] transition-colors">Техническая поддержка</Link></li>
               <li><Link to="/cart" className="hover:text-[#f97316] transition-colors">Корзина</Link></li>
               <li><Link to="/profile" className="hover:text-[#f97316] transition-colors">Личный кабинет</Link></li>
               <li><a href="#" className="hover:text-[#f97316] transition-colors">Политика конфиденциальности</a></li>
