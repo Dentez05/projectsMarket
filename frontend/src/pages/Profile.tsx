@@ -4,6 +4,9 @@ import { useApp } from '../store/AppContext';
 import { paymentsApi } from '../api/payments';
 import { api } from '../api/client';
 import { useState, useEffect } from 'react';
+import Pagination from '../components/Pagination';
+
+const PAGE_SIZE = 10;
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   Pending: { label: 'Ожидает оплаты', color: 'text-amber-400 bg-amber-500/10' },
@@ -15,6 +18,7 @@ export default function Profile() {
   const { user, orders, logout, refreshOrders, authReady } = useApp();
   const navigate = useNavigate();
   const [payingId, setPayingId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     if (!user || orders.length === 0) return;
@@ -49,6 +53,10 @@ export default function Profile() {
   }
 
   const handleLogout = () => { logout(); navigate('/'); };
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const visibleOrders = orders.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const handlePay = async (orderId: number) => {
     setPayingId(orderId);
@@ -145,8 +153,9 @@ export default function Profile() {
                 <Link to="/projects" className="mt-3 sm:mt-4 inline-block text-[#f97316] hover:underline text-xs sm:text-sm">Перейти в каталог</Link>
               </div>
             ) : (
-              <div className="space-y-2.5 sm:space-y-3">
-                {orders.map(order => {
+              <>
+                <div className="space-y-2.5 sm:space-y-3">
+                  {visibleOrders.map(order => {
                   const s = STATUS_LABELS[order.status] || STATUS_LABELS[order.status.charAt(0).toUpperCase() + order.status.slice(1).toLowerCase()];
                   return (
                     <div key={order.id} className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] p-4 sm:p-5">
@@ -184,7 +193,9 @@ export default function Profile() {
                     </div>
                   );
                 })}
-              </div>
+                </div>
+                <Pagination page={safePage} totalPages={totalPages} onPageChange={setPage} />
+              </>
             )}
           </div>
         </div>

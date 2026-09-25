@@ -7,6 +7,9 @@ import { categoriesApi } from '../api/categories';
 import { ordersApi } from '../api/orders';
 import { uploadApi, type ProjectFileResponse } from '../api/upload';
 import type { ApiProject, ApiCategory, ApiOrder } from '../api/types';
+import Pagination from '../components/Pagination';
+
+const PAGE_SIZE = 10;
 
 type View = 'list' | 'create' | 'edit';
 type Tab = 'projects' | 'orders';
@@ -42,6 +45,8 @@ export default function Admin() {
   const [categories, setCategories] = useState<ApiCategory[]>([]);
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [projectsPage, setProjectsPage] = useState(1);
+  const [ordersPage, setOrdersPage] = useState(1);
 
   useEffect(() => {
     setProjectList(projects);
@@ -62,6 +67,9 @@ export default function Admin() {
     if (authReady && user && user.role !== 'admin') navigate('/', { replace: true });
   }, [authReady, user, navigate]);
 
+  useEffect(() => { setProjectsPage(1); }, [filterCategory]);
+  useEffect(() => { setOrdersPage(1); }, [tab]);
+
   const allCategories = useMemo(() => {
     const fromProjects = projectList.map(p => p.categoryName).filter(Boolean);
     const fromDb = categories.map(c => c.name);
@@ -81,6 +89,15 @@ export default function Admin() {
 
   const filtered = (filterCategory === 'Все' ? projectList : projectList.filter(p => p.categoryName === filterCategory))
     .sort((a, b) => b.id - a.id);
+
+  const projectsTotalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safeProjectsPage = Math.min(projectsPage, projectsTotalPages);
+  const visibleProjects = filtered.slice((safeProjectsPage - 1) * PAGE_SIZE, safeProjectsPage * PAGE_SIZE);
+
+  const sortedOrders = [...orders].sort((a, b) => b.id - a.id);
+  const ordersTotalPages = Math.max(1, Math.ceil(sortedOrders.length / PAGE_SIZE));
+  const safeOrdersPage = Math.min(ordersPage, ordersTotalPages);
+  const visibleOrders = sortedOrders.slice((safeOrdersPage - 1) * PAGE_SIZE, safeOrdersPage * PAGE_SIZE);
 
   const handleDelete = async (id: number) => {
     if (!confirm('Удалить проект?')) return;
@@ -170,7 +187,7 @@ export default function Admin() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#2e3548]">
-              {filtered.map(p => (
+              {visibleProjects.map(p => (
                 <tr key={p.id} className="hover:bg-[#2a3244] transition-colors">
                   <td className="px-5 lg:px-6 py-3.5 text-sm text-white/40">#{p.id}</td>
                   <td className="px-5 lg:px-6 py-3.5">
@@ -201,7 +218,7 @@ export default function Admin() {
 
         {/* Mobile cards */}
         <div className="sm:hidden space-y-2.5">
-          {filtered.map(p => (
+          {visibleProjects.map(p => (
             <div key={p.id} className="bg-[#232a3b] rounded-xl border border-[#2e3548] p-3.5 flex items-center gap-3">
               <img src={p.images?.[0] || ''} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />
               <div className="flex-1 min-w-0">
@@ -220,6 +237,7 @@ export default function Admin() {
             </div>
           ))}
         </div>
+        <Pagination page={safeProjectsPage} totalPages={projectsTotalPages} onPageChange={setProjectsPage} />
           </>
         )}
 
@@ -250,7 +268,7 @@ export default function Admin() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#2e3548]">
-                      {orders.sort((a, b) => b.id - a.id).map(o => (
+                      {visibleOrders.map(o => (
                         <tr key={o.id} className="hover:bg-[#2a3244] transition-colors">
                           <td className="px-5 py-3.5 text-sm text-white/40">#{o.id}</td>
                           <td className="px-5 py-3.5 text-sm text-white/60 font-mono">{o.orderNumber}</td>
@@ -280,7 +298,7 @@ export default function Admin() {
                   </table>
                 </div>
                 <div className="sm:hidden space-y-2.5">
-                  {orders.sort((a, b) => b.id - a.id).map(o => (
+                  {visibleOrders.map(o => (
                     <div key={o.id} className="bg-[#232a3b] rounded-xl border border-[#2e3548] p-3.5">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs text-white/40 font-mono">{o.orderNumber}</span>
@@ -302,6 +320,7 @@ export default function Admin() {
                     </div>
                   ))}
                 </div>
+                <Pagination page={safeOrdersPage} totalPages={ordersTotalPages} onPageChange={setOrdersPage} />
               </>
             )}
           </>
