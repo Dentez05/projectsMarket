@@ -44,6 +44,7 @@ namespace Store.API.Services
                 Status = "Active",
                 Images = JsonSerializer.Serialize(request.Images),
                 Technologies = JsonSerializer.Serialize(request.Technologies),
+                PreviewImages = JsonSerializer.Serialize(request.PreviewImages),
                 Demo = request.Demo,
                 IsNew = request.IsNew,
                 Popular = request.Popular,
@@ -90,6 +91,9 @@ namespace Store.API.Services
 
             if (request.Technologies != null)
                 project.Technologies = JsonSerializer.Serialize(request.Technologies);
+
+            if (request.PreviewImages != null)
+                project.PreviewImages = JsonSerializer.Serialize(request.PreviewImages);
 
             if (request.Demo != null)
                 project.Demo = request.Demo;
@@ -146,7 +150,8 @@ namespace Store.API.Services
                 Technologies = SafeDeserializeList(project.Technologies),
                 Demo = project.Demo,
                 IsNew = project.IsNew,
-                Popular = project.Popular
+                Popular = project.Popular,
+                PreviewImages = SafeDeserializeList(project.PreviewImages)
             };
         }
 

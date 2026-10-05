@@ -1,10 +1,93 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, ExternalLink, Calendar, Tag, ChevronRight, Check, ArrowLeft } from 'lucide-react';
+import { ShoppingCart, ExternalLink, Calendar, Tag, ChevronRight, Check, ArrowLeft, Eye, Lock } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import type { ApiProject } from '../api/types';
 import ProjectCard from '../components/ProjectCard';
+
+function PreviewSection({ project }: { project: ApiProject }) {
+  const screenshots = project.previewImages || [];
+  const [active, setActive] = useState(0);
+
+  if (screenshots.length === 0) return null;
+
+  const cta = (
+    <div className="mt-5 p-4 rounded-xl bg-gradient-to-r from-[#f97316]/10 to-transparent border border-[#f97316]/20 flex flex-col sm:flex-row items-center gap-3">
+      <div className="flex items-center gap-2 text-[#f97316] shrink-0">
+        <Lock size={16} />
+        <span className="text-sm font-semibold">Полная версия доступна после покупки</span>
+      </div>
+      <p className="text-xs text-white/40 text-center sm:text-right sm:ml-auto">Все файлы, исходный код и документация</p>
+    </div>
+  );
+
+  return (
+    <div className="mb-10 sm:mb-16">
+      <div className="flex items-center gap-2 mb-4 sm:mb-6">
+        <div className="w-8 h-8 rounded-lg bg-[#f97316]/10 flex items-center justify-center">
+          <Eye size={16} className="text-[#f97316]" />
+        </div>
+        <div>
+          <h2 className="text-lg sm:text-xl font-bold text-white">Бесплатный превью</h2>
+          <p className="text-xs text-white/40">Ознакомьтесь с частью проекта перед покупкой</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl sm:rounded-2xl border border-[#2e3548] bg-[#232a3b] overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-[#2e3548] bg-[#1e2433]">
+          <Eye size={15} className="text-[#f97316] shrink-0" />
+          <span className="text-sm text-white/70 truncate font-medium">
+            {screenshots.length > 1 ? `Скриншоты: ${screenshots.length}` : 'Скриншот'}
+          </span>
+        </div>
+
+        <div className="p-4 sm:p-6">
+          <img src={screenshots[active]} alt="Превью проекта" className="w-full rounded-lg border border-[#2e3548] bg-black/30" />
+
+          {screenshots.length > 1 && (
+            <div className="flex gap-2 mt-3 overflow-x-auto scrollbar-hide pb-1">
+              {screenshots.map((url, i) => (
+                <button key={i} onClick={() => setActive(i)}
+                  className={`w-20 h-14 rounded-lg overflow-hidden border-2 transition-all flex-shrink-0 ${i === active ? 'border-[#f97316]' : 'border-[#2e3548] opacity-60 hover:opacity-100'}`}>
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {cta}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewFallback() {
+  return (
+    <div className="mb-10 sm:mb-16">
+      <div className="flex items-center gap-2 mb-4 sm:mb-6">
+        <div className="w-8 h-8 rounded-lg bg-[#f97316]/10 flex items-center justify-center">
+          <Eye size={16} className="text-[#f97316]" />
+        </div>
+        <div>
+          <h2 className="text-lg sm:text-xl font-bold text-white">Бесплатный превью</h2>
+          <p className="text-xs text-white/40">Ознакомьтесь с частью проекта перед покупкой</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl sm:rounded-2xl border border-[#2e3548] bg-[#232a3b] overflow-hidden">
+        <div className="flex flex-col items-center py-8 gap-3 px-4">
+          <div className="w-14 h-14 rounded-xl bg-[#f97316]/10 flex items-center justify-center">
+            <Lock size={26} className="text-[#f97316]" />
+          </div>
+          <p className="text-white/60 text-sm text-center">Файлы доступны для скачивания после покупки</p>
+          <p className="text-xs text-white/30 text-center">В архиве проекта — исходный код и документация</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ProjectDetail() {
   const { id } = useParams();
@@ -124,6 +207,10 @@ export default function ProjectDetail() {
             </div>
           </div>
         </div>
+
+        {project.previewImages && project.previewImages.length > 0
+          ? <PreviewSection project={project} />
+          : <PreviewFallback />}
 
         {similar.length > 0 && (
           <div>

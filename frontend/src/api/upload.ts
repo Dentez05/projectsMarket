@@ -19,6 +19,10 @@ export const uploadApi = {
       body: formData,
     });
     if (!res.ok) {
+      if (res.status === 401) {
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+        throw new Error('Сессия истекла — войдите в систему заново');
+      }
       const err = await res.json().catch(() => null);
       throw new Error(err?.message || 'Ошибка загрузки файла');
     }
@@ -50,5 +54,35 @@ export const uploadApi = {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error('Ошибка удаления файла');
+  },
+
+  uploadImage: async (file: File, projectId?: number): Promise<string> => {
+    const token = localStorage.getItem('token');
+    const formData = new FormData();
+    formData.append('file', file);
+    const query = projectId !== undefined ? `?projectId=${projectId}` : '';
+    const res = await fetch(`/api/Upload/image${query}`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      if (res.status === 401) {
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+        throw new Error('Сессия истекла — войдите в систему заново');
+      }
+      const err = await res.json().catch(() => null);
+      throw new Error(typeof err === 'string' ? err : err?.title || 'Ошибка загрузки изображения');
+    }
+    const data = await res.json();
+    return data.url as string;
+  },
+
+  uploadImages: async (files: File[], projectId?: number): Promise<string[]> => {
+    const results: string[] = [];
+    for (const file of files) {
+      results.push(await uploadApi.uploadImage(file, projectId));
+    }
+    return results;
   },
 };

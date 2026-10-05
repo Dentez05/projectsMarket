@@ -54,7 +54,7 @@ namespace Store.API.Controllers
             if (files.Count == 1)
             {
                 var file = files.First();
-                var fullPath = Path.Combine(_env.WebRootPath, file.FilePath.TrimStart('/'));
+                var fullPath = ResolveFilePath(file.FilePath);
                 if (!System.IO.File.Exists(fullPath))
                     return NotFound(new { message = "Файл не найден на сервере" });
 
@@ -74,7 +74,7 @@ namespace Store.API.Controllers
             {
                 foreach (var file in files)
                 {
-                    var fullPath = Path.Combine(_env.WebRootPath, file.FilePath.TrimStart('/'));
+                    var fullPath = ResolveFilePath(file.FilePath);
                     if (!System.IO.File.Exists(fullPath))
                         continue;
 
@@ -111,10 +111,11 @@ namespace Store.API.Controllers
                               o.Status == "Delivered" &&
                               o.OrderItems.Any(oi => oi.ProjectId == file.ProjectId));
 
-            if (!hasPaid && !isAdmin)
+            var isOwner = file.Project.CreatedByUserId == userId;
+            if (!hasPaid && !isAdmin && !isOwner)
                 return Forbid();
 
-            var fullPath = Path.Combine(_env.WebRootPath, file.FilePath.TrimStart('/'));
+            var fullPath = ResolveFilePath(file.FilePath);
             if (!System.IO.File.Exists(fullPath))
                 return NotFound(new { message = "Файл не найден на сервере" });
 
@@ -128,15 +129,19 @@ namespace Store.API.Controllers
         [HttpDelete("files/{fileId}")]
         public async Task<IActionResult> DeleteFile(int fileId)
         {
+            var userId = GetUserId();
             var isAdmin = User.IsInRole("Admin");
-            if (!isAdmin)
-                return Forbid();
 
-            var file = await _context.ProjectFiles.FindAsync(fileId);
+            var file = await _context.ProjectFiles
+                .Include(f => f.Project)
+                .FirstOrDefaultAsync(f => f.Id == fileId);
             if (file == null)
                 return NotFound();
 
-            var fullPath = Path.Combine(_env.WebRootPath, file.FilePath.TrimStart('/'));
+            if (!isAdmin && file.Project.CreatedByUserId != userId)
+                return Forbid();
+
+            var fullPath = ResolveFilePath(file.FilePath);
             if (System.IO.File.Exists(fullPath))
                 System.IO.File.Delete(fullPath);
 
@@ -162,7 +167,7 @@ namespace Store.API.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest(new { message = "Файл не выбран" });
 
-            var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "projects", projectId.ToString());
+            var uploadsDir = Path.Combine(_env.ContentRootPath, "uploads-private", "projects", projectId.ToString());
             Directory.CreateDirectory(uploadsDir);
 
             var extension = Path.GetExtension(file.FileName);
@@ -174,7 +179,7 @@ namespace Store.API.Controllers
                 await file.CopyToAsync(stream);
             }
 
-            var relativePath = $"/uploads/projects/{projectId}/{fileName}";
+            var relativePath = $"/uploads-private/projects/{projectId}/{fileName}";
 
             var projectFile = new Models.Entities.ProjectFile
             {
@@ -204,6 +209,16 @@ namespace Store.API.Controllers
         [HttpGet("project/{projectId}")]
         public async Task<IActionResult> GetProjectFiles(int projectId)
         {
+            var userId = GetUserId();
+            var isAdmin = User.IsInRole("Admin");
+
+            var project = await _context.Projects.FindAsync(projectId);
+            if (project == null)
+                return NotFound();
+
+            if (!isAdmin && project.CreatedByUserId != userId)
+                return Forbid();
+
             var files = await _context.ProjectFiles
                 .Where(f => f.ProjectId == projectId)
                 .Select(f => new ProjectFileResponse
@@ -227,6 +242,15 @@ namespace Store.API.Controllers
             if (string.IsNullOrEmpty(userIdClaim))
                 throw new UnauthorizedAccessException("User ID not found in token");
             return int.Parse(userIdClaim);
+        }
+
+        private string ResolveFilePath(string relativePath)
+        {
+            var trimmed = relativePath.TrimStart('/');
+            // Приватные файлы лежат вне wwwroot и отдаются только через API
+            return relativePath.StartsWith("/uploads-private/", StringComparison.Ordinal)
+                ? Path.Combine(_env.ContentRootPath, trimmed)
+                : Path.Combine(_env.WebRootPath, trimmed);
         }
 
         private static string GetContentType(string filePath)

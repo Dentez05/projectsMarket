@@ -79,21 +79,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => setProjectsLoaded(true));
   }, []);
 
+  const applyProfile = useCallback((data: { id: number; fullName: string; email: string; role: string }) => {
+    setUser({
+      id: data.id,
+      name: data.fullName,
+      email: data.email,
+      role: data.role.toLowerCase() as 'user' | 'admin',
+    });
+  }, []);
+
+  const clearSession = useCallback(() => {
+    setUser(null);
+    setCart([]);
+    setOrders([]);
+  }, []);
+
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { setAuthReady(true); return; }
     authApi.getProfile()
-      .then(data => {
-        setUser({
-          id: data.id,
-          name: data.fullName,
-          email: data.email,
-          role: data.role.toLowerCase() as 'user' | 'admin',
-        });
-      })
-      .catch(() => { localStorage.removeItem('token'); })
+      .then(applyProfile)
+      .catch(() => {})
       .finally(() => setAuthReady(true));
-  }, []);
+  }, [applyProfile]);
+
+  useEffect(() => {
+    const onExpired = () => {
+      localStorage.removeItem('token');
+      clearSession();
+    };
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'token') return;
+      if (!e.newValue) {
+        clearSession();
+      } else {
+        authApi.getProfile().then(applyProfile).catch(() => {});
+      }
+    };
+    window.addEventListener('auth:expired', onExpired);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener('auth:expired', onExpired);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [clearSession, applyProfile]);
 
   useEffect(() => {
     if (!user) { setCart([]); return; }

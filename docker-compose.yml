@@ -55,6 +55,7 @@ services:
       YooKassa__ReturnUrl: "http://localhost:5010/payment/success"
     volumes:
       - store_uploads:/app/wwwroot/uploads
+      - store_private:/app/uploads-private
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,3 +89,4 @@ services:
 volumes:
   postgres_data:
   store_uploads:
+  store_private:

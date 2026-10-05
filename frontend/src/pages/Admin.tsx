@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle, ImagePlus } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import { categoriesApi } from '../api/categories';
@@ -9,6 +9,7 @@ import { supportApi } from '../api/support';
 import { uploadApi, type ProjectFileResponse } from '../api/upload';
 import type { ApiProject, ApiCategory, ApiOrder, ApiSupportTicket } from '../api/types';
 import Pagination from '../components/Pagination';
+import { formatFileSize } from '../utils/preview';
 
 const PAGE_SIZE = 10;
 
@@ -26,14 +27,6 @@ const STATUS_COLORS: Record<string, string> = {
   Delivered: 'text-green-400 bg-green-500/10',
   Cancelled: 'text-red-400 bg-red-500/10',
 };
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Б';
-  if (bytes < 1024) return `${bytes} Б`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} КБ`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
-  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} ГБ`;
-}
 
 export default function Admin() {
   const { projects, projectsLoaded, user, authReady } = useApp();
@@ -76,7 +69,9 @@ export default function Admin() {
   }, [tab]);
 
   useEffect(() => {
-    if (authReady && user && user.role !== 'admin') navigate('/', { replace: true });
+    if (!authReady) return;
+    if (!user) navigate('/login', { replace: true });
+    else if (user.role !== 'admin') navigate('/', { replace: true });
   }, [authReady, user, navigate]);
 
   useEffect(() => { setProjectsPage(1); }, [filterCategory]);
@@ -481,16 +476,48 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [catSuggestions, setCatSuggestions] = useState<string[]>([]);
+  const catRef = useRef<HTMLDivElement>(null);
   const [projectFiles, setProjectFiles] = useState<ProjectFileResponse[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [previewImages, setPreviewImages] = useState<string[]>(project?.previewImages || []);
+  const [pendingPreviewImages, setPendingPreviewImages] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (project?.id) {
       uploadApi.getProjectFiles(project.id).then(setProjectFiles).catch(() => {});
     }
   }, [project?.id]);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (catRef.current && !catRef.current.contains(e.target as Node)) setCatSuggestions([]);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, []);
+
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const files: File[] = [];
+      for (const item of Array.from(items)) {
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) files.push(file);
+        }
+      }
+      if (files.length > 0) {
+        e.preventDefault();
+        setPendingPreviewImages(prev => [...prev, ...files]);
+      }
+    };
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, []);
 
   const addTechnology = () => { if (techInput.trim() && !technologies.includes(techInput.trim())) { setTechnologies([...technologies, techInput.trim()]); setTechInput(''); } };
   const removeTechnology = (tech: string) => setTechnologies(technologies.filter(t => t !== tech));
@@ -526,6 +553,17 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  const handlePreviewUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const images = Array.from(files).filter(f => f.type.startsWith('image/'));
+    if (images.length > 0) setPendingPreviewImages(prev => [...prev, ...images]);
+    if (previewInputRef.current) previewInputRef.current.value = '';
+  };
+
+  const removePreviewImage = (url: string) => setPreviewImages(prev => prev.filter(u => u !== url));
+  const removePendingPreview = (index: number) => setPendingPreviewImages(prev => prev.filter((_, i) => i !== index));
+
   const handleDeleteFile = async (fileId: number) => {
     try {
       await uploadApi.deleteFile(fileId);
@@ -560,12 +598,22 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
         categoryId: resolvedCategoryId, images, technologies, demo, isNew, popular,
       };
       if (project) {
-        const updated = await projectsApi.update(project.id, data);
+        const uploaded = await uploadApi.uploadImages(pendingPreviewImages, project.id);
+        const updated = await projectsApi.update(project.id, { ...data, previewImages: [...previewImages, ...uploaded] });
         onCreated(updated);
       } else {
-        const created = await projectsApi.create(data);
-        if (pendingFiles.length > 0 && created.id) {
-          await uploadApi.uploadProjectFiles(pendingFiles, created.id, 'source_code');
+        const created = await projectsApi.create({ ...data, previewImages: [] });
+        if (created.id) {
+          if (pendingFiles.length > 0) {
+            await uploadApi.uploadProjectFiles(pendingFiles, created.id, 'source_code');
+          }
+          const uploaded = await uploadApi.uploadImages(pendingPreviewImages, created.id);
+          if (uploaded.length > 0) {
+            const refreshed = await projectsApi.update(created.id, { previewImages: uploaded });
+            onCreated(refreshed);
+            setLoading(false);
+            return;
+          }
         }
         onCreated(created);
       }
@@ -604,17 +652,26 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
               <input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} required min={0}
                 className="w-full px-3 py-2 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]" />
             </div>
-            <div className="relative">
+            <div className="relative" ref={catRef}>
               <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1">Категория</label>
               <input type="text" value={categoryName} onChange={e => handleCategoryChange(e.target.value)}
                 placeholder="Например: E-commerce, CRM..."
                 className="w-full px-3 py-2 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]" />
               {catSuggestions.length > 0 && (
-                <div className="absolute z-10 top-full mt-1 w-full bg-[#2a3244] border border-[#2e3548] rounded-lg shadow-xl max-h-40 overflow-y-auto">
-                  {catSuggestions.map(s => (
-                    <button key={s} type="button" onClick={() => { setCategoryName(s); setCatSuggestions([]); }}
-                      className="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-[#374155] hover:text-white transition-colors">{s}</button>
-                  ))}
+                <div className="absolute z-30 top-full mt-1 w-full bg-[#2a3244] border border-[#2e3548] rounded-lg shadow-xl max-h-40 overflow-hidden flex flex-col">
+                  <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#2e3548] bg-[#232a3b]">
+                    <span className="text-[10px] font-semibold text-white/30 uppercase tracking-wide">Подсказки</span>
+                    <button type="button" onClick={() => setCatSuggestions([])} title="Скрыть подсказки"
+                      className="p-0.5 text-white/40 hover:text-[#f97316] hover:bg-[#f97316]/10 rounded transition-colors">
+                      <X size={13} />
+                    </button>
+                  </div>
+                  <div className="overflow-y-auto">
+                    {catSuggestions.map(s => (
+                      <button key={s} type="button" onClick={() => { setCategoryName(s); setCatSuggestions([]); }}
+                        className="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-[#374155] hover:text-white transition-colors">{s}</button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -671,7 +728,7 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
 
           <div>
             <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1">Файлы проекта (исходный код)</label>
-            <p className="text-[10px] sm:text-xs text-white/30 mb-2">Загрузите архив или файлы проекта. Пользователи смогут скачать после оплаты.</p>
+            <p className="text-[10px] sm:text-xs text-white/30 mb-2">Загрузите архив или файлы проекта. Хранятся в закрытом доступе — пользователь скачает после оплаты.</p>
             <div className="flex items-center gap-2">
               <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileUpload} />
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploadingFile}
@@ -683,11 +740,11 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
             {pendingFiles.length > 0 && !project?.id && (
               <div className="mt-2 space-y-1">
                 {pendingFiles.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 bg-[#2a3244] rounded-lg text-xs text-white/50">
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-[#2a3244] text-white/50">
                     <FileArchive size={13} className="text-[#f97316]" />
                     <span className="truncate">{f.name}</span>
-                    <span className="text-white/30">{formatFileSize(f.size)}</span>
-                    <button type="button" onClick={() => removePendingFile(i)} className="ml-auto text-red-400 hover:text-red-300"><X size={12} /></button>
+                    <span className="ml-auto text-white/30">{formatFileSize(f.size)}</span>
+                    <button type="button" onClick={() => removePendingFile(i)} className="text-red-400 hover:text-red-300"><X size={12} /></button>
                   </div>
                 ))}
               </div>
@@ -695,14 +752,49 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
             {projectFiles.length > 0 && (
               <div className="mt-2 space-y-1">
                 {projectFiles.map(f => (
-                  <div key={f.id} className="flex items-center gap-2 px-3 py-1.5 bg-[#2a3244] rounded-lg text-xs text-white/50">
+                  <div key={f.id} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs bg-[#2a3244] text-white/50">
                     <FileArchive size={13} className="text-[#f97316]" />
                     <span className="truncate">{f.originalFileName}</span>
-                    <span className="text-white/30 ml-auto">{formatFileSize(f.fileSize)}</span>
+                    <span className="ml-auto text-white/30">{formatFileSize(f.fileSize)}</span>
                     <button type="button" onClick={() => handleDeleteFile(f.id)} className="text-red-400 hover:text-red-300 ml-1"><X size={12} /></button>
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1">Превью (скриншоты)</label>
+            <p className="text-[10px] sm:text-xs text-white/30 mb-2">Скриншоты бесплатного фрагмента (страница Word, PDF, код...). Публикуются на странице проекта без ограничений. Можно сделать скриншот и вставить его клавишами Ctrl+V.</p>
+            <div className="flex items-center gap-2">
+              <input ref={previewInputRef} type="file" multiple accept="image/*" className="hidden" onChange={handlePreviewUpload} />
+              <button type="button" onClick={() => previewInputRef.current?.click()}
+                className="flex items-center gap-2 px-3 py-2 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white/60 hover:border-[#f97316]/30 hover:text-[#f97316] transition-colors disabled:opacity-50">
+                <ImagePlus size={15} />
+                Добавить скриншоты
+              </button>
+            </div>
+            {(previewImages.length > 0 || pendingPreviewImages.length > 0) && (
+              <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {previewImages.map((url, i) => (
+                  <div key={`saved-${i}`} className="relative group">
+                    <img src={url} alt="" className="w-full h-16 sm:h-24 object-cover rounded-lg border border-[#2e3548]" />
+                    <button type="button" onClick={() => removePreviewImage(url)} title="Удалить"
+                      className="absolute top-0.5 right-0.5 p-0.5 sm:p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} className="sm:w-3 sm:h-3" /></button>
+                  </div>
+                ))}
+                {pendingPreviewImages.map((f, i) => (
+                  <div key={`pending-${i}`} className="relative group">
+                    <img src={URL.createObjectURL(f)} alt="" className="w-full h-16 sm:h-24 object-cover rounded-lg border border-dashed border-[#f97316]/50" />
+                    <span className="absolute bottom-0.5 left-0.5 text-[9px] bg-black/70 text-[#f97316] px-1 rounded">новый</span>
+                    <button type="button" onClick={() => removePendingPreview(i)} title="Убрать"
+                      className="absolute top-0.5 right-0.5 p-0.5 sm:p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} className="sm:w-3 sm:h-3" /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {previewImages.length === 0 && pendingPreviewImages.length === 0 && (
+              <p className="mt-2 text-[10px] text-white/30">Скриншоты не добавлены — на странице проекта будет блок «Файл доступен после покупки».</p>
             )}
           </div>
 

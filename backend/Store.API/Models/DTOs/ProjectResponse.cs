@@ -18,5 +18,6 @@
         public string? Demo { get; set; }
         public bool IsNew { get; set; }
         public bool Popular { get; set; }
+        public List<string> PreviewImages { get; set; } = new();
     }
 }

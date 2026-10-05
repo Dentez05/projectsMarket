@@ -21,8 +21,12 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Ошибка сервера' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      const error = await response.json().catch(() => ({ message: '' }));
+      if (response.status === 401 && !path.startsWith('/Auth/login') && !path.startsWith('/Auth/register')) {
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+        throw new Error('Сессия истекла — войдите в систему заново');
+      }
+      throw new Error(error.message || (response.status >= 500 ? 'Ошибка сервера' : `Ошибка запроса (${response.status})`));
     }
 
     if (response.status === 204) return undefined as T;
@@ -71,8 +75,12 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Ошибка загрузки' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      const error = await response.json().catch(() => ({ message: '' }));
+      if (response.status === 401) {
+        window.dispatchEvent(new CustomEvent('auth:expired'));
+        throw new Error('Сессия истекла — войдите в систему заново');
+      }
+      throw new Error(error.message || 'Ошибка загрузки');
     }
     return response.json();
   }

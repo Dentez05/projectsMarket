@@ -104,6 +104,32 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<StoreDbContext>();
     db.Database.Migrate();
+
+    // Перенос уже загруженных проектных файлов в приватное хранилище
+    // (старые записи лежат в wwwroot/uploads и отдаются статикой без авторизации)
+    var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
+    var legacyFiles = db.ProjectFiles
+        .Where(f => f.FilePath.StartsWith("/uploads/"))
+        .ToList();
+
+    foreach (var file in legacyFiles)
+    {
+        var relative = file.FilePath.TrimStart('/');
+        var source = Path.Combine(env.WebRootPath, relative);
+        if (!System.IO.File.Exists(source))
+            continue;
+
+        var privateRelative = relative.Replace("uploads/", "uploads-private/", StringComparison.Ordinal);
+        var target = Path.Combine(env.ContentRootPath, privateRelative);
+        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+        System.IO.File.Move(source, target, overwrite: true);
+
+        file.FilePath = "/" + privateRelative;
+        app.Logger.LogInformation("Файл проекта {ProjectId} перенесён в приватное хранилище: {Path}", file.ProjectId, file.FilePath);
+    }
+
+    if (legacyFiles.Count > 0)
+        db.SaveChanges();
 }
 
 if (app.Environment.IsDevelopment())

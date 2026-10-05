@@ -47,6 +47,9 @@ namespace Store.API.Models.Entities
         public bool IsNew { get; set; } = false;
         public bool Popular { get; set; } = false;
 
+        [Column(TypeName = "jsonb")]
+        public string PreviewImages { get; set; } = "[]";
+
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
         public ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
         public ICollection<ProjectFile> ProjectFiles { get; set; } = new List<ProjectFile>();

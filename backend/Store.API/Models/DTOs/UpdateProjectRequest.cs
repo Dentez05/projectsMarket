@@ -23,6 +23,8 @@ namespace Store.API.Models.DTOs
 
         public List<string>? Technologies { get; set; }
 
+        public List<string>? PreviewImages { get; set; }
+
         public string? Demo { get; set; }
 
         public bool? IsNew { get; set; }

@@ -195,6 +195,10 @@ namespace Store.API.Migrations
                     b.Property<bool>("Popular")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("PreviewImages")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18, 2)");
 

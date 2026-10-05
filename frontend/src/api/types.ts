@@ -37,6 +37,7 @@ export interface ApiProject {
   demo: string | null;
   isNew: boolean;
   popular: boolean;
+  previewImages: string[];
 }
 
 export interface CreateProjectRequest {
@@ -47,6 +48,7 @@ export interface CreateProjectRequest {
   categoryId: number | null;
   images: string[];
   technologies: string[];
+  previewImages: string[];
   demo: string;
   isNew: boolean;
   popular: boolean;

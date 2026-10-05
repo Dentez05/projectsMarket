@@ -20,6 +20,7 @@ namespace Store.API.Models.DTOs
         public int? CategoryId { get; set; }
         public List<string> Images { get; set; } = new();
         public List<string> Technologies { get; set; } = new();
+        public List<string> PreviewImages { get; set; } = new();
         public string? Demo { get; set; }
         public bool IsNew { get; set; } = false;
         public bool Popular { get; set; } = false;
