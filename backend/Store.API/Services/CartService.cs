@@ -47,9 +47,11 @@ namespace Store.API.Services
                 return;
             }
 
-            var projectExists = await _projectRepository.ExistsAsync(projectId);
-            if (!projectExists)
+            var project = await _projectRepository.GetByIdAsync(projectId);
+            if (project == null)
                 throw new ArgumentException("Проект не найден");
+            if (project.Status != "Active")
+                throw new ArgumentException($"Проект «{project.Title}» снят с продажи");
 
             var cartItem = new CartItem
             {

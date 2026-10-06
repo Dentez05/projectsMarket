@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, ExternalLink, Calendar, Tag, ChevronRight, Check, ArrowLeft, Eye, Lock } from 'lucide-react';
+import { ShoppingCart, ExternalLink, Calendar, Tag, ChevronRight, Check, ArrowLeft, Eye, Lock, Ban } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import type { ApiProject } from '../api/types';
@@ -131,7 +131,8 @@ export default function ProjectDetail() {
   );
 
   const inCart = isInCart(project.id);
-  const similar = projects.filter(p => p.categoryName === project.categoryName && p.id !== project.id).slice(0, 3);
+  const forSale = project.status === 'Active';
+  const similar = projects.filter(p => p.status === 'Active' && p.categoryName === project.categoryName && p.id !== project.id).slice(0, 3);
 
   return (
     <div className="pt-14 sm:pt-20 lg:pt-24">
@@ -191,13 +192,19 @@ export default function ProjectDetail() {
             <div className="p-4 sm:p-5 bg-[#232a3b] border border-[#2e3548] rounded-xl sm:rounded-2xl">
               <div className="text-2xl sm:text-3xl font-bold text-white mb-3 sm:mb-4">{project.price.toLocaleString('ru-RU')} &#8381;</div>
               <div className="flex flex-col gap-2.5 sm:gap-3">
-                <button onClick={async () => {
-                    const ok = await addToCart(project);
-                    if (!ok) navigate('/login');
-                  }} disabled={inCart}
-                  className={`flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 sm:px-6 rounded-xl text-sm sm:text-base font-semibold transition-all ${inCart ? 'bg-green-500/10 text-green-400 border border-green-500/20 cursor-default' : 'btn-primary'}`}>
-                  {inCart ? <><Check size={16} className="sm:w-[18px] sm:h-[18px]" /> В корзине</> : <><ShoppingCart size={16} className="sm:w-[18px] sm:h-[18px]" /> Добавить в корзину</>}
-                </button>
+                {!forSale ? (
+                  <div className="flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 sm:px-6 rounded-xl text-sm sm:text-base font-semibold bg-white/5 text-white/40 border border-[#2e3548]">
+                    <Ban size={16} className="sm:w-[18px] sm:h-[18px]" /> Снят с продажи
+                  </div>
+                ) : (
+                  <button onClick={async () => {
+                      const ok = await addToCart(project);
+                      if (!ok) navigate('/login');
+                    }} disabled={inCart}
+                    className={`flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 sm:px-6 rounded-xl text-sm sm:text-base font-semibold transition-all ${inCart ? 'bg-green-500/10 text-green-400 border border-green-500/20 cursor-default' : 'btn-primary'}`}>
+                    {inCart ? <><Check size={16} className="sm:w-[18px] sm:h-[18px]" /> В корзине</> : <><ShoppingCart size={16} className="sm:w-[18px] sm:h-[18px]" /> Добавить в корзину</>}
+                  </button>
+                )}
                 {project.demo && (
                   <a href={project.demo} target="_blank" rel="noopener noreferrer" className="btn-outline flex items-center justify-center gap-2 py-2.5 sm:py-3 px-5 sm:px-6 rounded-xl text-sm sm:text-base font-semibold">
                     <ExternalLink size={16} className="sm:w-[18px] sm:h-[18px]" /> Попробовать демо

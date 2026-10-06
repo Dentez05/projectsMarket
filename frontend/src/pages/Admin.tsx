@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle, ImagePlus, Lock } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle, ImagePlus, Lock, Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import { categoriesApi } from '../api/categories';
@@ -147,7 +147,19 @@ export default function Admin() {
     try {
       await projectsApi.delete(id);
       setProjectList(prev => prev.filter(p => p.id !== id));
-    } catch {}
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Не удалось удалить проект');
+    }
+  };
+
+  const handleToggleStatus = async (project: ApiProject) => {
+    const next = project.status === 'Active' ? 'Hidden' : 'Active';
+    try {
+      const updated = await projectsApi.update(project.id, { status: next });
+      setProjectList(prev => prev.map(p => p.id === project.id ? { ...p, ...updated } : p));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Не удалось изменить статус');
+    }
   };
 
   const handleEdit = (project: ApiProject) => {
@@ -273,6 +285,7 @@ export default function Admin() {
                 <th className="text-left px-5 lg:px-6 py-3 text-xs font-semibold text-white/40 uppercase">Название</th>
                 <th className="text-left px-5 lg:px-6 py-3 text-xs font-semibold text-white/40 uppercase hidden md:table-cell">Категория</th>
                 <th className="text-left px-5 lg:px-6 py-3 text-xs font-semibold text-white/40 uppercase">Цена</th>
+                <th className="text-right px-5 lg:px-6 py-3 text-xs font-semibold text-white/40 uppercase">Продаж</th>
                 <th className="text-right px-5 lg:px-6 py-3 text-xs font-semibold text-white/40 uppercase">Действия</th>
               </tr>
             </thead>
@@ -285,19 +298,33 @@ export default function Admin() {
                       <img src={p.images?.[0] || ''} alt="" className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-cover flex-shrink-0" />
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-white truncate">{p.title}</p>
-                        <div className="flex gap-1 mt-0.5">
+                        <div className="flex gap-1 mt-0.5 flex-wrap">
                           {p.isNew && <span className="text-[10px] bg-[#f97316]/10 text-[#f97316] px-1.5 py-0.5 rounded font-medium">Новый</span>}
                           {p.popular && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-medium">Популярный</span>}
+                          {p.status !== 'Active' && <span className="text-[10px] bg-white/10 text-white/50 px-1.5 py-0.5 rounded font-medium">Скрыт</span>}
                         </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-5 lg:px-6 py-3.5 text-sm text-white/50 hidden md:table-cell">{p.categoryName}</td>
                   <td className="px-5 lg:px-6 py-3.5 text-sm font-semibold text-white">{p.price.toLocaleString('ru-RU')} &#8381;</td>
+                  <td className="px-5 lg:px-6 py-3.5 text-sm text-right">
+                    {(p.soldCount ?? 0) > 0
+                      ? <span className="text-[#f97316] font-semibold">{p.soldCount}</span>
+                      : <span className="text-white/25">0</span>}
+                  </td>
                   <td className="px-5 lg:px-6 py-3.5">
                     <div className="flex justify-end gap-1.5 sm:gap-2">
+                      <button
+                        onClick={() => handleToggleStatus(p)}
+                        title={p.status === 'Active' ? 'Скрыть из каталога' : 'Показать в каталоге'}
+                        className={`p-1.5 sm:p-2 rounded-lg transition-colors ${p.status === 'Active' ? 'text-white/40 hover:text-amber-400 hover:bg-amber-500/10' : 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20'}`}>
+                        {p.status === 'Active' ? <EyeOff size={14} className="sm:w-[15px] sm:h-[15px]" /> : <Eye size={14} className="sm:w-[15px] sm:h-[15px]" />}
+                      </button>
                       <button onClick={() => handleEdit(p)} className="p-1.5 sm:p-2 rounded-lg text-white/40 hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"><Pencil size={14} className="sm:w-[15px] sm:h-[15px]" /></button>
-                      <button onClick={() => handleDelete(p.id)} className="p-1.5 sm:p-2 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={14} className="sm:w-[15px] sm:h-[15px]" /></button>
+                      {(p.soldCount ?? 0) === 0 && (
+                        <button onClick={() => handleDelete(p.id)} title="Удалить" className="p-1.5 sm:p-2 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={14} className="sm:w-[15px] sm:h-[15px]" /></button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -317,12 +344,24 @@ export default function Admin() {
                   <span className="text-[10px] text-white/40 bg-white/5 px-1.5 py-0.5 rounded">{p.categoryName}</span>
                   {p.isNew && <span className="text-[10px] bg-[#f97316]/10 text-[#f97316] px-1.5 py-0.5 rounded font-medium">Новый</span>}
                   {p.popular && <span className="text-[10px] bg-amber-500/10 text-amber-400 px-1.5 py-0.5 rounded font-medium">Популярный</span>}
+                  {p.status !== 'Active' && <span className="text-[10px] bg-white/10 text-white/50 px-1.5 py-0.5 rounded font-medium">Скрыт</span>}
                 </div>
-                <p className="font-semibold text-white text-sm mt-1">{p.price.toLocaleString('ru-RU')} &#8381;</p>
+                <p className="font-semibold text-white text-sm mt-1">
+                  {p.price.toLocaleString('ru-RU')} &#8381;
+                  {(p.soldCount ?? 0) > 0 && <span className="text-[#f97316] font-medium text-xs"> · купили {p.soldCount}</span>}
+                </p>
               </div>
               <div className="flex flex-col gap-1 flex-shrink-0">
+                <button
+                  onClick={() => handleToggleStatus(p)}
+                  title={p.status === 'Active' ? 'Скрыть из каталога' : 'Показать в каталоге'}
+                  className={`p-1.5 rounded-lg transition-colors ${p.status === 'Active' ? 'text-white/40 hover:text-amber-400 hover:bg-amber-500/10' : 'text-amber-400 bg-amber-500/10'}`}>
+                  {p.status === 'Active' ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
                 <button onClick={() => handleEdit(p)} className="p-1.5 rounded-lg text-white/40 hover:text-[#f97316] hover:bg-[#f97316]/10 transition-colors"><Pencil size={14} /></button>
-                <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={14} /></button>
+                {(p.soldCount ?? 0) === 0 && (
+                  <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"><Trash2 size={14} /></button>
+                )}
               </div>
             </div>
           ))}

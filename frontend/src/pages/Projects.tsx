@@ -35,17 +35,18 @@ export default function Projects() {
   const debouncedSearch = useDebounce(search, 300);
 
   const allCategories = useMemo(() => {
-    const fromProjects = projects.map(p => p.categoryName).filter(Boolean);
+    const fromProjects = projects.filter(p => p.status === 'Active').map(p => p.categoryName).filter(Boolean);
     return ['Все', ...new Set(fromProjects)];
   }, [projects]);
 
   const filtered = useMemo(() => {
     let result = projects.filter(p => {
+      const matchStatus = p.status === 'Active';
       const matchSearch = !debouncedSearch || p.title.toLowerCase().includes(debouncedSearch.toLowerCase()) || p.description.toLowerCase().includes(debouncedSearch.toLowerCase());
       const matchCat = category === 'Все' || p.categoryName === category;
       const matchMin = !priceMin || p.price >= Number(priceMin);
       const matchMax = !priceMax || p.price <= Number(priceMax);
-      return matchSearch && matchCat && matchMin && matchMax;
+      return matchStatus && matchSearch && matchCat && matchMin && matchMax;
     });
 
     switch (sort) {

@@ -20,13 +20,14 @@ const CATEGORY_ICONS: Record<string, typeof ShoppingCart> = {
 
 export default function Home() {
   const { projects } = useApp();
-  const popular = projects.filter(p => p.popular).slice(0, 4);
-  const newest = projects.filter(p => p.isNew).slice(0, 4);
+  const visible = useMemo(() => projects.filter(p => p.status === 'Active'), [projects]);
+  const popular = visible.filter(p => p.popular).slice(0, 4);
+  const newest = visible.filter(p => p.isNew).slice(0, 4);
 
   const categories = useMemo(() => {
-    const names = [...new Set(projects.map(p => p.categoryName).filter(Boolean))];
+    const names = [...new Set(visible.map(p => p.categoryName).filter(Boolean))];
     return names.slice(0, 4);
-  }, [projects]);
+  }, [visible]);
 
   return (
     <div>
@@ -65,7 +66,7 @@ export default function Home() {
           <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {categories.map((cat, i) => {
               const Icon = CATEGORY_ICONS[cat] || Zap;
-              const count = projects.filter(p => p.categoryName === cat).length;
+              const count = visible.filter(p => p.categoryName === cat).length;
               return (
                 <ScrollReveal key={cat} delay={300 + i * 75}>
                   <Link to={`/projects?category=${cat}`} className="block bg-[#232a3b]/80 backdrop-blur-sm border border-[#2e3548] rounded-xl p-3.5 sm:p-5 group cursor-pointer transition-all duration-300 hover:border-[#f97316]/30 hover:bg-[#2a3244]/80">

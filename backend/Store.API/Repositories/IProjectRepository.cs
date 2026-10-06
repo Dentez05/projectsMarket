@@ -10,6 +10,7 @@ namespace Store.API.Repositories
 
         Task<Project?> GetByIdWithCategoryAsync(int id);
         Task<List<Project>> GetByUserIdAsync(int userId);
+        Task<Dictionary<int, int>> GetSalesCountsAsync();
 
         Task AddAsync(Project project);
         Task UpdateAsync(Project project);

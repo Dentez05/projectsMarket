@@ -46,6 +46,13 @@ namespace Store.API.Repositories
                 .ToListAsync();
         }
 
+        public async Task<Dictionary<int, int>> GetSalesCountsAsync()
+        {
+            return await _context.OrderItems
+                .GroupBy(oi => oi.ProjectId)
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
+        }
+
         public async Task AddAsync(Project project)
         {
             await _context.Projects.AddAsync(project);

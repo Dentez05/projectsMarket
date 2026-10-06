@@ -9,7 +9,7 @@ export const projectsApi = {
   create: (data: CreateProjectRequest) =>
     api.post<ApiProject>('/Projects', data),
 
-  update: (id: number, data: Partial<CreateProjectRequest>) =>
+  update: (id: number, data: Partial<CreateProjectRequest> & { status?: string }) =>
     api.put<ApiProject>(`/Projects/${id}`, data),
 
   delete: (id: number) =>

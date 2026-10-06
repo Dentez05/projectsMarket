@@ -16,10 +16,18 @@ namespace Store.API.Services
             _logger = logger;
         }
 
+        private static readonly HashSet<string> AllowedStatuses = new() { "Active", "Hidden" };
+
         public async Task<IEnumerable<ProjectResponse>> GetAllAsync()
         {
             var projects = await _projectRepository.GetAllAsync();
-            return projects.Select(p => MapToResponse(p));
+            var sales = await _projectRepository.GetSalesCountsAsync();
+            return projects.Select(p =>
+            {
+                var response = MapToResponse(p);
+                response.SoldCount = sales.GetValueOrDefault(p.Id);
+                return response;
+            });
         }
 
         public async Task<ProjectResponse?> GetByIdAsync(int id)
@@ -84,7 +92,11 @@ namespace Store.API.Services
                 project.CategoryId = request.CategoryId;
 
             if (!string.IsNullOrWhiteSpace(request.Status))
+            {
+                if (!AllowedStatuses.Contains(request.Status))
+                    throw new ArgumentException($"Недопустимый статус: {request.Status}. Допустимые: Active, Hidden");
                 project.Status = request.Status;
+            }
 
             if (request.Images != null)
                 project.Images = JsonSerializer.Serialize(request.Images);
@@ -122,6 +134,12 @@ namespace Store.API.Services
 
             if (project.CreatedByUserId != userId && !isAdmin)
                 throw new UnauthorizedAccessException("Вы можете удалять только свои проекты");
+
+            var sales = await _projectRepository.GetSalesCountsAsync();
+            var soldCount = sales.GetValueOrDefault(id);
+            if (soldCount > 0)
+                throw new ArgumentException(
+                    $"Нельзя удалить проект «{project.Title}» — его уже купили {soldCount} раз. Снимите его с продажи (Скрыть), чтобы он больше не покупался");
 
             await _projectRepository.DeleteAsync(project);
             await _projectRepository.SaveChangesAsync();

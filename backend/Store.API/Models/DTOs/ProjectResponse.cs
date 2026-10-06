@@ -19,5 +19,6 @@
         public bool IsNew { get; set; }
         public bool Popular { get; set; }
         public List<string> PreviewImages { get; set; } = new();
+        public int SoldCount { get; set; }
     }
 }

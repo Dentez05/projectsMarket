@@ -38,6 +38,7 @@ export interface ApiProject {
   isNew: boolean;
   popular: boolean;
   previewImages: string[];
+  soldCount?: number;
 }
 
 export interface CreateProjectRequest {

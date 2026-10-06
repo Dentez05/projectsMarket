@@ -31,6 +31,11 @@ namespace Store.API.Services
             if (!cartItems.Any())
                 throw new InvalidOperationException("Корзина пуста");
 
+            var hidden = cartItems.FirstOrDefault(c => c.Project.Status != "Active");
+            if (hidden != null)
+                throw new ArgumentException(
+                    $"Проект «{hidden.Project.Title}» снят с продажи — уберите его из корзины");
+
             var totalAmount = cartItems.Sum(c => c.Project.Price);
 
             var order = new Order
