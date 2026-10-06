@@ -270,6 +270,45 @@ namespace Store.API.Migrations
                     b.ToTable("project_files", (string)null);
                 });
 
+            modelBuilder.Entity("Store.API.Models.Entities.SupportMessage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("SenderId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SenderName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("SenderRole")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int>("TicketId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TicketId");
+
+                    b.ToTable("support_messages", (string)null);
+                });
+
             modelBuilder.Entity("Store.API.Models.Entities.SupportTicket", b =>
                 {
                     b.Property<int>("Id")
@@ -278,20 +317,19 @@ namespace Store.API.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("AdminReply")
-                        .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)");
+                    b.Property<DateTime?>("AdminLastReadAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("LastMessageAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
-
-                    b.Property<DateTime?>("RepliedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -311,12 +349,17 @@ namespace Store.API.Migrations
                     b.Property<int>("UserId")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("UserLastReadAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LastMessageAt");
 
                     b.HasIndex("Status");
 
@@ -376,6 +419,17 @@ namespace Store.API.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("Store.API.Models.Entities.SupportMessage", b =>
+                {
+                    b.HasOne("Store.API.Models.Entities.SupportTicket", "Ticket")
+                        .WithMany("Messages")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Ticket");
+                });
+
             modelBuilder.Entity("Store.API.Models.Entities.Category", b =>
                 {
                     b.Navigation("Projects");
@@ -393,6 +447,11 @@ namespace Store.API.Migrations
                     b.Navigation("OrderItems");
 
                     b.Navigation("ProjectFiles");
+                });
+
+            modelBuilder.Entity("Store.API.Models.Entities.SupportTicket", b =>
+                {
+                    b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618
         }

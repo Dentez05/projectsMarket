@@ -23,11 +23,14 @@ namespace Store.API.Models.Entities
         [MaxLength(20)]
         public string Status { get; set; } = "Open";
 
-        [MaxLength(4000)]
-        public string? AdminReply { get; set; }
-
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public DateTime? RepliedAt { get; set; }
+        public DateTime LastMessageAt { get; set; } = DateTime.UtcNow;
+
+        public DateTime? UserLastReadAt { get; set; }
+
+        public DateTime? AdminLastReadAt { get; set; }
+
+        public List<SupportMessage> Messages { get; set; } = new();
     }
 }

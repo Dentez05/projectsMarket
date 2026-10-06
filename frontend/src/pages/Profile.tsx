@@ -2,7 +2,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { LogOut, Download, Package, User, Mail, CreditCard } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { paymentsApi } from '../api/payments';
-import { api } from '../api/client';
+import { api, fetchWithAuth } from '../api/client';
 import { useState, useEffect } from 'react';
 import Pagination from '../components/Pagination';
 
@@ -76,19 +76,14 @@ export default function Profile() {
   };
 
   const handleDownload = async (orderId: number) => {
-    const token = localStorage.getItem('token');
-    const res = await fetch(`/api/Download/orders/${orderId}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const res = await fetchWithAuth(`/api/Download/orders/${orderId}`);
     if (!res.ok) return;
     const ct = res.headers.get('content-type') || '';
     const cd = res.headers.get('content-disposition') || '';
     if (ct.includes('application/json')) {
       const files = await res.clone().json();
       for (const f of files) {
-        const fileRes = await fetch(`/api/Download/files/${f.id}`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
+        const fileRes = await fetchWithAuth(`/api/Download/files/${f.id}`);
         if (!fileRes.ok) continue;
         const fileCd = fileRes.headers.get('content-disposition') || '';
         const fileBlob = await fileRes.blob();

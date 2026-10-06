@@ -9,8 +9,14 @@ export const supportApi = {
 
   getAll: () => api.get<ApiSupportTicket[]>('/Support'),
 
-  reply: (id: number, reply: string) =>
-    api.patch<ApiSupportTicket>(`/Support/${id}/reply`, { reply }),
+  getById: (id: number) =>
+    api.get<ApiSupportTicket>(`/Support/${id}`),
+
+  sendMessage: (id: number, body: string) =>
+    api.post<ApiSupportTicket>(`/Support/${id}/messages`, { body }),
+
+  markRead: (id: number) =>
+    api.post<ApiSupportTicket>(`/Support/${id}/read`),
 
   close: (id: number) =>
     api.patch<ApiSupportTicket>(`/Support/${id}/close`),

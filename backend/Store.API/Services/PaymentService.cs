@@ -26,20 +26,65 @@ namespace Store.API.Services
 
         public async Task<string> CheckPaymentStatusAsync(string paymentId)
         {
+            var info = await GetPaymentInfoAsync(paymentId);
+            return info?.Status ?? "unknown";
+        }
+
+        public async Task<PaymentVerificationResult?> GetPaymentInfoAsync(string paymentId)
+        {
             var shopId = _configuration["YooKassa:ShopId"];
             var secretKey = _configuration["YooKassa:SecretKey"];
-            var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{shopId}:{secretKey}"));
+            if (string.IsNullOrEmpty(shopId) || string.IsNullOrEmpty(secretKey))
+            {
+                _logger.LogWarning("YooKassa не настроена (ShopId/SecretKey пусты)");
+                return null;
+            }
 
-            var client = _httpClientFactory.CreateClient();
-            client.DefaultRequestHeaders.Add("Authorization", $"Basic {auth}");
+            try
+            {
+                var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{shopId}:{secretKey}"));
 
-            var response = await client.GetAsync($"https://api.yookassa.ru/v3/payments/{paymentId}");
-            var responseJson = await response.Content.ReadAsStringAsync();
+                var client = _httpClientFactory.CreateClient();
+                client.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", auth);
 
-            using var jsonDoc = JsonDocument.Parse(responseJson);
-            var status = jsonDoc.RootElement.GetProperty("status").GetString();
+                var response = await client.GetAsync($"https://api.yookassa.ru/v3/payments/{Uri.EscapeDataString(paymentId)}");
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("ЮKassa вернула {StatusCode} для платежа {PaymentId}",
+                        response.StatusCode, paymentId);
+                    return null;
+                }
 
-            return status ?? "unknown";
+                var responseJson = await response.Content.ReadAsStringAsync();
+                using var jsonDoc = JsonDocument.Parse(responseJson);
+                var root = jsonDoc.RootElement;
+
+                var info = new PaymentVerificationResult
+                {
+                    PaymentId = root.GetProperty("id").GetString() ?? paymentId,
+                    Status = root.GetProperty("status").GetString() ?? "unknown"
+                };
+
+                if (root.TryGetProperty("metadata", out var metadata)
+                    && metadata.TryGetProperty("orderId", out var orderId))
+                    info.OrderId = orderId.GetString();
+
+                if (root.TryGetProperty("amount", out var amount))
+                {
+                    if (amount.TryGetProperty("value", out var value))
+                        info.AmountValue = value.GetString();
+                    if (amount.TryGetProperty("currency", out var currency))
+                        info.AmountCurrency = currency.GetString();
+                }
+
+                return info;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Не удалось получить платёж {PaymentId} из ЮKassa", paymentId);
+                return null;
+            }
         }
 
         public async Task<PaymentResponse> CreatePaymentAsync(int orderId, string returnUrl)
@@ -149,10 +194,35 @@ namespace Store.API.Services
 
         public async Task HandlePaymentSucceededAsync(string paymentId)
         {
+            // Вебхуку не верим: перепроверяем платёж напрямую в ЮKassa
+            var info = await GetPaymentInfoAsync(paymentId);
+            if (info == null || !string.Equals(info.Status, "succeeded", StringComparison.Ordinal))
+            {
+                _logger.LogWarning("Вебхук отклонён: платёж {PaymentId} не подтверждён API ЮKassa (статус: {Status})",
+                    paymentId, info?.Status ?? "неизвестен");
+                return;
+            }
+
             var order = await _context.Orders.FirstOrDefaultAsync(o => o.PaymentId == paymentId);
             if (order == null)
             {
                 _logger.LogWarning("Заказ с paymentId {PaymentId} не найден", paymentId);
+                return;
+            }
+
+            if (info.OrderId != null && info.OrderId != order.Id.ToString())
+            {
+                _logger.LogWarning("Вебхук отклонён: платёж {PaymentId} привязан к заказу {ExternalOrderId}, ожидался {OrderId}",
+                    paymentId, info.OrderId, order.Id);
+                return;
+            }
+
+            if (!decimal.TryParse(info.AmountValue, NumberStyles.Number, CultureInfo.InvariantCulture, out var paidAmount)
+                || decimal.Round(paidAmount, 2) != decimal.Round(order.TotalAmount, 2)
+                || !string.Equals(info.AmountCurrency, "RUB", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("Вебхук отклонён: сумма платежа {Amount} {Currency} не совпадает с заказом {OrderNumber} ({Total})",
+                    info.AmountValue, info.AmountCurrency, order.OrderNumber, order.TotalAmount);
                 return;
             }
 

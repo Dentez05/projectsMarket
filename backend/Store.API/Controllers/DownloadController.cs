@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Store.API.Data;
 using Store.API.Models.DTOs;
 using System.IO.Compression;
+using System.Text.RegularExpressions;
 
 namespace Store.API.Controllers
 {
@@ -78,7 +79,7 @@ namespace Store.API.Controllers
                     if (!System.IO.File.Exists(fullPath))
                         continue;
 
-                    var entryName = file.OriginalFileName ?? Path.GetFileName(file.FilePath);
+                    var entryName = SanitizeEntryName(file.OriginalFileName ?? Path.GetFileName(file.FilePath));
                     archive.CreateEntryFromFile(fullPath, entryName, CompressionLevel.Fastest);
                 }
             }
@@ -171,6 +172,8 @@ namespace Store.API.Controllers
             Directory.CreateDirectory(uploadsDir);
 
             var extension = Path.GetExtension(file.FileName);
+            if (!Regex.IsMatch(extension, @"^[.A-Za-z0-9]+$"))
+                extension = "";
             var fileName = $"{Guid.NewGuid()}{extension}";
             var filePath = Path.Combine(uploadsDir, fileName);
 
@@ -248,9 +251,29 @@ namespace Store.API.Controllers
         {
             var trimmed = relativePath.TrimStart('/');
             // Приватные файлы лежат вне wwwroot и отдаются только через API
-            return relativePath.StartsWith("/uploads-private/", StringComparison.Ordinal)
-                ? Path.Combine(_env.ContentRootPath, trimmed)
-                : Path.Combine(_env.WebRootPath, trimmed);
+            var root = relativePath.StartsWith("/uploads-private/", StringComparison.Ordinal)
+                ? _env.ContentRootPath
+                : _env.WebRootPath;
+
+            var rootFull = Path.GetFullPath(root) + Path.DirectorySeparatorChar;
+            var fullPath = Path.GetFullPath(Path.Combine(root, trimmed));
+
+            var comparison = OperatingSystem.IsWindows()
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+            if (!fullPath.StartsWith(rootFull, comparison))
+                throw new ArgumentException($"Недопустимый путь файла: {relativePath}");
+
+            return fullPath;
+        }
+
+        // Имя записи в zip: только имя файла, без директорий и спецсимволов
+        private static string SanitizeEntryName(string name)
+        {
+            var fileName = Path.GetFileName(name.Replace('\\', '/'));
+            foreach (var c in Path.GetInvalidFileNameChars())
+                fileName = fileName.Replace(c.ToString(), "");
+            return string.IsNullOrWhiteSpace(fileName) ? "file" : fileName;
         }
 
         private static string GetContentType(string filePath)

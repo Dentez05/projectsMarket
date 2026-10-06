@@ -7,5 +7,6 @@ namespace Store.API.Services
         Task<PaymentResponse> CreatePaymentAsync(int orderId, string returnUrl);
         Task HandlePaymentSucceededAsync(string paymentId);
         Task<string> CheckPaymentStatusAsync(string paymentId);
+        Task<PaymentVerificationResult?> GetPaymentInfoAsync(string paymentId);
     }
 }

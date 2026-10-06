@@ -28,6 +28,7 @@ namespace Store.API.Controllers
             var userName = User.FindFirst("name")?.Value ?? "";
             var userEmail = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value
                          ?? User.FindFirst("email")?.Value ?? "";
+            var now = DateTime.UtcNow;
 
             var ticket = new SupportTicket
             {
@@ -37,7 +38,20 @@ namespace Store.API.Controllers
                 Subject = request.Subject.Trim(),
                 Message = request.Message.Trim(),
                 Status = "Open",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = now,
+                LastMessageAt = now,
+                UserLastReadAt = now,
+                Messages = new List<SupportMessage>
+                {
+                    new()
+                    {
+                        SenderId = userId,
+                        SenderRole = "User",
+                        SenderName = userName,
+                        Body = request.Message.Trim(),
+                        CreatedAt = now
+                    }
+                }
             };
 
             _context.SupportTickets.Add(ticket);
@@ -45,7 +59,8 @@ namespace Store.API.Controllers
 
             _logger.LogInformation("Создано обращение в поддержку #{TicketId} от пользователя {UserId}", ticket.Id, userId);
 
-            return CreatedAtAction(nameof(GetMyTickets), new { id = ticket.Id }, MapToResponse(ticket));
+            var detail = await GetDetailAsync(ticket.Id);
+            return CreatedAtAction(nameof(GetTicket), new { id = ticket.Id }, detail);
         }
 
         [HttpGet("my")]
@@ -54,10 +69,25 @@ namespace Store.API.Controllers
             var userId = GetUserId();
             var tickets = await _context.SupportTickets
                 .Where(t => t.UserId == userId)
-                .OrderByDescending(t => t.CreatedAt)
+                .OrderByDescending(t => t.LastMessageAt)
+                .Select(t => new SupportTicketResponse
+                {
+                    Id = t.Id,
+                    UserId = t.UserId,
+                    UserName = t.UserName,
+                    UserEmail = t.UserEmail,
+                    Subject = t.Subject,
+                    Message = t.Message,
+                    Status = t.Status,
+                    CreatedAt = t.CreatedAt,
+                    LastMessageAt = t.LastMessageAt,
+                    UnreadCount = t.Messages.Count(m =>
+                        m.SenderRole == "Admin" &&
+                        m.CreatedAt > (t.UserLastReadAt ?? t.CreatedAt))
+                })
                 .ToListAsync();
 
-            return Ok(tickets.Select(MapToResponse).ToList());
+            return Ok(tickets);
         }
 
         [Authorize(Roles = "Admin")]
@@ -68,27 +98,98 @@ namespace Store.API.Controllers
             if (!string.IsNullOrEmpty(status))
                 query = query.Where(t => t.Status == status);
 
-            var tickets = await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
-            return Ok(tickets.Select(MapToResponse).ToList());
+            var tickets = await query
+                .OrderByDescending(t => t.LastMessageAt)
+                .Select(t => new SupportTicketResponse
+                {
+                    Id = t.Id,
+                    UserId = t.UserId,
+                    UserName = t.UserName,
+                    UserEmail = t.UserEmail,
+                    Subject = t.Subject,
+                    Message = t.Message,
+                    Status = t.Status,
+                    CreatedAt = t.CreatedAt,
+                    LastMessageAt = t.LastMessageAt,
+                    UnreadCount = t.Messages.Count(m =>
+                        m.SenderRole == "User" &&
+                        m.CreatedAt > (t.AdminLastReadAt ?? t.CreatedAt))
+                })
+                .ToListAsync();
+
+            return Ok(tickets);
         }
 
-        [Authorize(Roles = "Admin")]
-        [HttpPatch("{id}/reply")]
-        public async Task<IActionResult> Reply(int id, [FromBody] ReplySupportTicketRequest request)
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetTicket(int id)
         {
+            if (!await CanAccessAsync(id)) return Forbid();
+
+            var detail = await GetDetailAsync(id);
+            if (detail == null) return NotFound();
+            return Ok(detail);
+        }
+
+        [HttpPost("{id:int}/messages")]
+        public async Task<IActionResult> SendMessage(int id, [FromBody] SendMessageRequest request)
+        {
+            var userId = GetUserId();
+            var isAdmin = User.IsInRole("Admin");
+            var senderName = User.FindFirst("name")?.Value ?? "";
+
             var ticket = await _context.SupportTickets.FindAsync(id);
             if (ticket == null) return NotFound();
+            if (!isAdmin && ticket.UserId != userId) return Forbid();
+            if (ticket.Status == "Closed")
+                throw new ArgumentException("Обращение закрыто, ответить нельзя");
 
-            ticket.AdminReply = request.Reply.Trim();
-            ticket.Status = "Answered";
-            ticket.RepliedAt = DateTime.UtcNow;
+            var now = DateTime.UtcNow;
+            var body = request.Body.Trim();
+
+            _context.SupportMessages.Add(new SupportMessage
+            {
+                TicketId = ticket.Id,
+                SenderId = userId,
+                SenderRole = isAdmin ? "Admin" : "User",
+                SenderName = senderName,
+                Body = body,
+                CreatedAt = now
+            });
+
+            ticket.LastMessageAt = now;
+            ticket.Status = isAdmin ? "Answered" : "Open";
+            if (isAdmin) ticket.AdminLastReadAt = now;
+            else ticket.UserLastReadAt = now;
+
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Ответ на обращение #{TicketId}", id);
-            return Ok(MapToResponse(ticket));
+            _logger.LogInformation("Сообщение в обращение #{TicketId} от {Role} {UserId}", id, isAdmin ? "Admin" : "User", userId);
+
+            var detail = await GetDetailAsync(id);
+            return Ok(detail);
         }
 
-        [HttpPatch("{id}/close")]
+        [HttpPost("{id:int}/read")]
+        public async Task<IActionResult> MarkRead(int id)
+        {
+            var userId = GetUserId();
+            var isAdmin = User.IsInRole("Admin");
+
+            var ticket = await _context.SupportTickets.FindAsync(id);
+            if (ticket == null) return NotFound();
+            if (!isAdmin && ticket.UserId != userId) return Forbid();
+
+            var now = DateTime.UtcNow;
+            if (isAdmin) ticket.AdminLastReadAt = now;
+            else ticket.UserLastReadAt = now;
+
+            await _context.SaveChangesAsync();
+
+            var detail = await GetDetailAsync(id);
+            return Ok(detail);
+        }
+
+        [HttpPatch("{id:int}/close")]
         public async Task<IActionResult> Close(int id)
         {
             var userId = GetUserId();
@@ -101,7 +202,58 @@ namespace Store.API.Controllers
             ticket.Status = "Closed";
             await _context.SaveChangesAsync();
 
-            return Ok(MapToResponse(ticket));
+            var detail = await GetDetailAsync(id);
+            return Ok(detail);
+        }
+
+        private async Task<bool> CanAccessAsync(int id)
+        {
+            var isAdmin = User.IsInRole("Admin");
+            if (isAdmin) return await _context.SupportTickets.AnyAsync(t => t.Id == id);
+
+            var userId = GetUserId();
+            return await _context.SupportTickets.AnyAsync(t => t.Id == id && t.UserId == userId);
+        }
+
+        private async Task<SupportTicketResponse?> GetDetailAsync(int id)
+        {
+            var isAdmin = User.IsInRole("Admin");
+            var incomingRole = isAdmin ? "User" : "Admin";
+
+            var query = _context.SupportTickets.Where(t => t.Id == id);
+
+            return await query
+                .Select(t => new SupportTicketResponse
+                {
+                    Id = t.Id,
+                    UserId = t.UserId,
+                    UserName = t.UserName,
+                    UserEmail = t.UserEmail,
+                    Subject = t.Subject,
+                    Message = t.Message,
+                    Status = t.Status,
+                    CreatedAt = t.CreatedAt,
+                    LastMessageAt = t.LastMessageAt,
+                    UnreadCount = t.Messages.Count(m =>
+                        m.SenderRole == incomingRole &&
+                        m.CreatedAt > (isAdmin
+                            ? (t.AdminLastReadAt ?? t.CreatedAt)
+                            : (t.UserLastReadAt ?? t.CreatedAt))),
+                    Messages = t.Messages
+                        .OrderBy(m => m.CreatedAt)
+                        .Select(m => new SupportMessageResponse
+                        {
+                            Id = m.Id,
+                            TicketId = m.TicketId,
+                            SenderId = m.SenderId,
+                            SenderRole = m.SenderRole,
+                            SenderName = m.SenderName,
+                            Body = m.Body,
+                            CreatedAt = m.CreatedAt
+                        })
+                        .ToList()
+                })
+                .FirstOrDefaultAsync();
         }
 
         private int GetUserId()
@@ -111,19 +263,5 @@ namespace Store.API.Controllers
                 throw new UnauthorizedAccessException("User ID not found in token");
             return int.Parse(userIdClaim);
         }
-
-        private static SupportTicketResponse MapToResponse(SupportTicket t) => new()
-        {
-            Id = t.Id,
-            UserId = t.UserId,
-            UserName = t.UserName,
-            UserEmail = t.UserEmail,
-            Subject = t.Subject,
-            Message = t.Message,
-            Status = t.Status,
-            AdminReply = t.AdminReply,
-            CreatedAt = t.CreatedAt,
-            RepliedAt = t.RepliedAt
-        };
     }
 }

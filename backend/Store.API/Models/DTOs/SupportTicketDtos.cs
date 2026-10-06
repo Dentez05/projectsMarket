@@ -14,12 +14,23 @@ namespace Store.API.Models.DTOs
         public string Message { get; set; } = "";
     }
 
-    public class ReplySupportTicketRequest
+    public class SendMessageRequest
     {
-        [Required(ErrorMessage = "Введите ответ")]
-        [MinLength(1, ErrorMessage = "Введите ответ")]
-        [MaxLength(4000, ErrorMessage = "Ответ не длиннее 4000 символов")]
-        public string Reply { get; set; } = "";
+        [Required(ErrorMessage = "Введите сообщение")]
+        [MinLength(1, ErrorMessage = "Введите сообщение")]
+        [MaxLength(4000, ErrorMessage = "Сообщение не длиннее 4000 символов")]
+        public string Body { get; set; } = "";
+    }
+
+    public class SupportMessageResponse
+    {
+        public int Id { get; set; }
+        public int TicketId { get; set; }
+        public int SenderId { get; set; }
+        public string SenderRole { get; set; } = "";
+        public string SenderName { get; set; } = "";
+        public string Body { get; set; } = "";
+        public DateTime CreatedAt { get; set; }
     }
 
     public class SupportTicketResponse
@@ -31,8 +42,9 @@ namespace Store.API.Models.DTOs
         public string Subject { get; set; } = "";
         public string Message { get; set; } = "";
         public string Status { get; set; } = "";
-        public string? AdminReply { get; set; }
         public DateTime CreatedAt { get; set; }
-        public DateTime? RepliedAt { get; set; }
+        public DateTime LastMessageAt { get; set; }
+        public int UnreadCount { get; set; }
+        public List<SupportMessageResponse>? Messages { get; set; }
     }
 }

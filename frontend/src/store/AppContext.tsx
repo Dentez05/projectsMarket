@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, type ReactNode } from 'react';
 import type { ApiProject, ApiCartItem } from '../api/types';
 import { authApi } from '../api/auth';
+import { refreshAccessToken } from '../api/client';
 import { cartApi } from '../api/cart';
 import { ordersApi } from '../api/orders';
 import { projectsApi } from '../api/projects';
@@ -95,12 +96,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) { setAuthReady(true); return; }
-    authApi.getProfile()
-      .then(applyProfile)
-      .catch(() => {})
-      .finally(() => setAuthReady(true));
+    // access-токен короткоживущий (15 мин): на старте пробуем тихо обновить сессию по refresh-cookie
+    (async () => {
+      try {
+        if (!localStorage.getItem('token')) {
+          const refreshed = await refreshAccessToken();
+          if (!refreshed) { setAuthReady(true); return; }
+        }
+        await authApi.getProfile().then(applyProfile);
+      } catch {
+        // сессии нет — остаёмся анонимом
+      } finally {
+        setAuthReady(true);
+      }
+    })();
   }, [applyProfile]);
 
   useEffect(() => {
@@ -194,6 +203,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    // отзываем refresh-токен на сервере (httpOnly-cookie)
+    authApi.logout().catch(() => {});
     localStorage.removeItem('token');
     setUser(null);
     setCart([]);

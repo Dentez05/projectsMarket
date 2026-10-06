@@ -31,6 +31,8 @@ var app = builder.Build();
 
 app.UseCors("AllowReact");
 
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+
 app.MapReverseProxy();
 
 app.Run();

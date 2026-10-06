@@ -12,11 +12,13 @@ namespace Store.API.Controllers
     {
         private readonly IPaymentService _paymentService;
         private readonly IOrderService _orderService;
+        private readonly IConfiguration _configuration;
 
-        public PaymentsController(IPaymentService paymentService, IOrderService orderService)
+        public PaymentsController(IPaymentService paymentService, IOrderService orderService, IConfiguration configuration)
         {
             _paymentService = paymentService;
             _orderService = orderService;
+            _configuration = configuration;
         }
 
         [HttpPost("orders/{id}")]
@@ -24,7 +26,7 @@ namespace Store.API.Controllers
         {
             var userId = int.Parse(User.FindFirst("uid")?.Value ?? "0");
             var isAdmin = User.IsInRole("Admin");
-                
+
             var order = await _orderService.GetOrderByIdAsync(userId, id, isAdmin);
 
             if (order == null)
@@ -33,20 +35,23 @@ namespace Store.API.Controllers
             if (order.Status != "Pending")
                 return BadRequest("Заказ уже оплачен или отменён");
 
-            var payment = await _paymentService.CreatePaymentAsync(id, "http://localhost:5010/profile");
+            var returnUrl = _configuration["YooKassa:ReturnUrl"] ?? "http://localhost:5010/profile";
+            var payment = await _paymentService.CreatePaymentAsync(id, returnUrl);
 
             return Ok(new
             {
-                paymentId = payment.PaymentId,  
+                paymentId = payment.PaymentId,
                 confirmationUrl = payment.ConfirmationUrl
             });
         }
 
         [HttpGet("success")]
-        [AllowAnonymous]
         public async Task<IActionResult> Success([FromQuery] int orderId)
         {
-            var order = await _orderService.GetOrderByIdAsyncForAdmin(orderId);
+            var userId = int.Parse(User.FindFirst("uid")?.Value ?? "0");
+            var isAdmin = User.IsInRole("Admin");
+
+            var order = await _orderService.GetOrderByIdAsync(userId, orderId, isAdmin);
             if (order == null)
                 return NotFound("Заказ не найден");
 

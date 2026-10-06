@@ -1,4 +1,5 @@
-﻿using Store.API.Models.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using Store.API.Models.Entities;
 using Store.API.Models.DTOs;
 using Store.API.Repositories;
 
@@ -57,8 +58,18 @@ namespace Store.API.Services
                 AddedAt = DateTime.UtcNow
             };
 
-            await _cartRepository.AddToCartAsync(cartItem);
-            await _cartRepository.SaveChangesAsync();
+            try
+            {
+                await _cartRepository.AddToCartAsync(cartItem);
+                await _cartRepository.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex)
+            {
+                // Гонка двух одинаковых запросов: уникальный индекс уже вставил строку
+                _logger.LogWarning(ex, "Проект {ProjectId} уже в корзине пользователя {UserId} (гонка вставки)",
+                    projectId, userId);
+                return;
+            }
 
             _logger.LogInformation("Проект {ProjectId} добавлен в корзину пользователя {UserId}", projectId, userId);
         }

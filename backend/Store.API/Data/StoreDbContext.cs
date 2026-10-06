@@ -17,6 +17,7 @@ namespace Store.API.Data
         public DbSet<CartItem> CartItems { get; set; }
         public DbSet<ProjectFile> ProjectFiles { get; set; }
         public DbSet<SupportTicket> SupportTickets { get; set; }
+        public DbSet<SupportMessage> SupportMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -112,9 +113,24 @@ namespace Store.API.Data
                 entity.Property(e => e.Subject).IsRequired().HasMaxLength(200);
                 entity.Property(e => e.Message).IsRequired().HasMaxLength(4000);
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(20);
-                entity.Property(e => e.AdminReply).HasMaxLength(4000);
                 entity.HasIndex(e => e.UserId);
                 entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.LastMessageAt);
+            });
+
+            modelBuilder.Entity<SupportMessage>(entity =>
+            {
+                entity.ToTable("support_messages");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.SenderRole).IsRequired().HasMaxLength(10);
+                entity.Property(e => e.SenderName).HasMaxLength(100);
+                entity.Property(e => e.Body).IsRequired().HasMaxLength(4000);
+                entity.HasIndex(e => e.TicketId);
+
+                entity.HasOne(e => e.Ticket)
+                    .WithMany(t => t.Messages)
+                    .HasForeignKey(e => e.TicketId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
 

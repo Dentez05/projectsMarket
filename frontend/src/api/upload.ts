@@ -1,3 +1,5 @@
+import { fetchWithAuth } from './client';
+
 export interface ProjectFileResponse {
   id: number;
   projectId: number;
@@ -10,17 +12,14 @@ export interface ProjectFileResponse {
 
 export const uploadApi = {
   uploadProjectFile: async (file: File, projectId: number, fileType: string): Promise<ProjectFileResponse> => {
-    const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file', file);
-    const res = await fetch(`/api/Download/upload?projectId=${projectId}&fileType=${fileType}`, {
+    const res = await fetchWithAuth(`/api/Download/upload?projectId=${projectId}&fileType=${fileType}`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
     });
     if (!res.ok) {
       if (res.status === 401) {
-        window.dispatchEvent(new CustomEvent('auth:expired'));
         throw new Error('Сессия истекла — войдите в систему заново');
       }
       const err = await res.json().catch(() => null);
@@ -39,36 +38,28 @@ export const uploadApi = {
   },
 
   getProjectFiles: async (projectId: number): Promise<ProjectFileResponse[]> => {
-    const token = localStorage.getItem('token');
-    const res = await fetch(`/api/Download/project/${projectId}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const res = await fetchWithAuth(`/api/Download/project/${projectId}`);
     if (!res.ok) return [];
     return res.json();
   },
 
   deleteFile: async (fileId: number): Promise<void> => {
-    const token = localStorage.getItem('token');
-    const res = await fetch(`/api/Download/files/${fileId}`, {
+    const res = await fetchWithAuth(`/api/Download/files/${fileId}`, {
       method: 'DELETE',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) throw new Error('Ошибка удаления файла');
   },
 
   uploadImage: async (file: File, projectId?: number): Promise<string> => {
-    const token = localStorage.getItem('token');
     const formData = new FormData();
     formData.append('file', file);
     const query = projectId !== undefined ? `?projectId=${projectId}` : '';
-    const res = await fetch(`/api/Upload/image${query}`, {
+    const res = await fetchWithAuth(`/api/Upload/image${query}`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
     });
     if (!res.ok) {
       if (res.status === 401) {
-        window.dispatchEvent(new CustomEvent('auth:expired'));
         throw new Error('Сессия истекла — войдите в систему заново');
       }
       const err = await res.json().catch(() => null);

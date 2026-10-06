@@ -96,6 +96,16 @@ export interface ApiPaymentResponse {
 }
 
 // ─── Support ────────────────────────────────────────────
+export interface ApiSupportMessage {
+  id: number;
+  ticketId: number;
+  senderId: number;
+  senderRole: 'User' | 'Admin';
+  senderName: string;
+  body: string;
+  createdAt: string;
+}
+
 export interface ApiSupportTicket {
   id: number;
   userId: number;
@@ -104,7 +114,8 @@ export interface ApiSupportTicket {
   subject: string;
   message: string;
   status: 'Open' | 'Answered' | 'Closed';
-  adminReply: string | null;
   createdAt: string;
-  repliedAt: string | null;
+  lastMessageAt: string;
+  unreadCount: number;
+  messages?: ApiSupportMessage[];
 }

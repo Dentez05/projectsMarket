@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: projectsmarket-postgres
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres123
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD не задан в .env}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
@@ -25,16 +23,25 @@ services:
       dockerfile: Dockerfile
     container_name: projectsmarket-auth-api
     ports:
-      - "5008:8080"
+      - "127.0.0.1:5008:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=auth_db;Username=postgres;Password=postgres123"
-      Jwt__Key: "projectsmarket-super-secret-key-2024-32chars"
+      ASPNETCORE_ENVIRONMENT: ${ENVIRONMENT:-Production}
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=auth_db;Username=postgres;Password=${POSTGRES_PASSWORD}"
+      Jwt__Key: "${JWT_KEY:?JWT_KEY не задан в .env}"
       Jwt__Issuer: "projectsmarket-api"
       Jwt__Audience: "projectsmarket-client"
+      Admin__Email: "${ADMIN_EMAIL:-}"
+      Admin__Password: "${ADMIN_PASSWORD:-}"
+      Cors__Origins: "${CORS_ORIGINS:-http://localhost:5010,http://localhost:5173}"
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   store-api:
@@ -43,22 +50,31 @@ services:
       dockerfile: Dockerfile
     container_name: projectsmarket-store-api
     ports:
-      - "5009:8080"
+      - "127.0.0.1:5009:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=store_db;Username=postgres;Password=postgres123"
-      Jwt__Key: "projectsmarket-super-secret-key-2024-32chars"
+      ASPNETCORE_ENVIRONMENT: ${ENVIRONMENT:-Production}
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=store_db;Username=postgres;Password=${POSTGRES_PASSWORD}"
+      Jwt__Key: "${JWT_KEY:?JWT_KEY не задан в .env}"
       Jwt__Issuer: "projectsmarket-api"
       Jwt__Audience: "projectsmarket-client"
-      YooKassa__ShopId: "1348149"
-      YooKassa__SecretKey: "test_SK3HJZ68nhbSlCyjGohseo4EoRcQ749tfKZyWNbQJqY"
-      YooKassa__ReturnUrl: "http://localhost:5010/payment/success"
+      YooKassa__ShopId: "${YOOKASSA_SHOP_ID:-}"
+      YooKassa__SecretKey: "${YOOKASSA_SECRET_KEY:-}"
+      YooKassa__ReturnUrl: "${PUBLIC_URL:-http://localhost:5010}/profile"
+      YooKassa__WebhookUser: "${YOOKASSA_WEBHOOK_USER:-}"
+      YooKassa__WebhookPassword: "${YOOKASSA_WEBHOOK_PASSWORD:-}"
+      Cors__Origins: "${CORS_ORIGINS:-http://localhost:5010,http://localhost:5173}"
     volumes:
       - store_uploads:/app/wwwroot/uploads
       - store_private:/app/uploads-private
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   api-gateway:
@@ -67,12 +83,20 @@ services:
       dockerfile: Dockerfile
     container_name: projectsmarket-api-gateway
     ports:
-      - "5000:8080"
+      - "127.0.0.1:5000:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: ${ENVIRONMENT:-Production}
     depends_on:
-      - auth-api
-      - store-api
+      auth-api:
+        condition: service_healthy
+      store-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   frontend:
@@ -81,9 +105,16 @@ services:
       dockerfile: Dockerfile
     container_name: projectsmarket-frontend
     ports:
-      - "5010:80"
+      - "${FRONTEND_PORT:-5010}:80"
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
 
 volumes:

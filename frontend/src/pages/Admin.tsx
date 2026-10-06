@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle, ImagePlus } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle, ImagePlus, Lock } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import { categoriesApi } from '../api/categories';
@@ -12,6 +12,16 @@ import Pagination from '../components/Pagination';
 import { formatFileSize } from '../utils/preview';
 
 const PAGE_SIZE = 10;
+
+const fmtTime = (iso: string) =>
+  new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+const ticketStatusInfo = (status: string) =>
+  status === 'Open'
+    ? { label: 'Открыто', color: 'text-amber-400 bg-amber-500/10', icon: <Clock size={12} /> }
+    : status === 'Answered'
+    ? { label: 'Отвечено', color: 'text-green-400 bg-green-500/10', icon: <CheckCircle size={12} /> }
+    : { label: 'Закрыто', color: 'text-white/40 bg-white/5', icon: <XCircle size={12} /> };
 
 type View = 'list' | 'create' | 'edit';
 type Tab = 'projects' | 'orders' | 'support';
@@ -43,8 +53,11 @@ export default function Admin() {
   const [ordersPage, setOrdersPage] = useState(1);
   const [tickets, setTickets] = useState<ApiSupportTicket[]>([]);
   const [ticketsLoading, setTicketsLoading] = useState(false);
-  const [replyingTo, setReplyingTo] = useState<number | null>(null);
-  const [replyText, setReplyText] = useState('');
+  const [activeTicket, setActiveTicket] = useState<ApiSupportTicket | null>(null);
+  const [chatText, setChatText] = useState('');
+  const [chatSending, setChatSending] = useState(false);
+  const [chatError, setChatError] = useState('');
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setProjectList(projects);
@@ -65,8 +78,31 @@ export default function Admin() {
     if (tab === 'support') {
       setTicketsLoading(true);
       supportApi.getAll().then(setTickets).catch(() => {}).finally(() => setTicketsLoading(false));
+    } else {
+      setActiveTicket(null);
+      setChatText('');
+      setChatError('');
     }
   }, [tab]);
+
+  // автообновление открытого чата
+  useEffect(() => {
+    if (tab !== 'support' || !activeTicket) return;
+    const ticketId = activeTicket.id;
+    const timer = setInterval(async () => {
+      try {
+        let detail = await supportApi.getById(ticketId);
+        if (detail.unreadCount > 0) detail = await supportApi.markRead(ticketId);
+        setActiveTicket(prev => (prev && prev.id === ticketId ? detail : prev));
+        setTickets(prev => prev.map(t => t.id === ticketId ? { ...detail, messages: undefined } : t));
+      } catch {}
+    }, 15000);
+    return () => clearInterval(timer);
+  }, [tab, activeTicket?.id]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [activeTicket?.messages?.length]);
 
   useEffect(() => {
     if (!authReady) return;
@@ -137,20 +173,41 @@ export default function Admin() {
     } catch {}
   };
 
-  const handleReply = async (ticketId: number) => {
-    if (!replyText.trim()) return;
+  const updateTicket = (detail: ApiSupportTicket) => {
+    setTickets(prev => prev.map(t => t.id === detail.id ? { ...detail, messages: undefined } : t));
+  };
+
+  const openChat = async (ticketId: number) => {
     try {
-      const updated = await supportApi.reply(ticketId, replyText.trim());
-      setTickets(prev => prev.map(t => t.id === ticketId ? updated : t));
-      setReplyingTo(null);
-      setReplyText('');
+      let detail = await supportApi.getById(ticketId);
+      if (detail.unreadCount > 0) detail = await supportApi.markRead(ticketId);
+      setActiveTicket(detail);
+      updateTicket(detail);
+      setChatText('');
+      setChatError('');
     } catch {}
+  };
+
+  const sendChatMessage = async () => {
+    if (!activeTicket || !chatText.trim() || activeTicket.status === 'Closed' || chatSending) return;
+    setChatSending(true);
+    setChatError('');
+    try {
+      const detail = await supportApi.sendMessage(activeTicket.id, chatText.trim());
+      setActiveTicket(detail);
+      updateTicket(detail);
+      setChatText('');
+    } catch (err) {
+      setChatError(err instanceof Error ? err.message : 'Ошибка отправки');
+    }
+    setChatSending(false);
   };
 
   const handleCloseTicket = async (ticketId: number) => {
     try {
       const updated = await supportApi.close(ticketId);
-      setTickets(prev => prev.map(t => t.id === ticketId ? updated : t));
+      updateTicket(updated);
+      setActiveTicket(prev => (prev && prev.id === ticketId ? updated : prev));
     } catch {}
   };
 
@@ -359,94 +416,149 @@ export default function Admin() {
           </>
         )}
 
-        {tab === 'support' && (
-          <>
-            {ticketsLoading ? (
-              <div className="flex justify-center py-12">
-                <div className="w-8 h-8 border-2 border-white/20 border-t-[#f97316] rounded-full animate-spin" />
-              </div>
-            ) : tickets.length === 0 ? (
-              <div className="text-center py-12">
-                <LifeBuoy size={48} className="mx-auto text-white/10 mb-4" />
-                <p className="text-white/40 text-sm">Обращений пока нет</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {tickets.map(t => {
-                  const statusInfo = t.status === 'Open'
-                    ? { label: 'Открыто', color: 'text-amber-400 bg-amber-500/10', icon: <Clock size={12} /> }
-                    : t.status === 'Answered'
-                    ? { label: 'Отвечено', color: 'text-green-400 bg-green-500/10', icon: <CheckCircle size={12} /> }
-                    : { label: 'Закрыто', color: 'text-white/40 bg-white/5', icon: <XCircle size={12} /> };
-                  return (
-                    <div key={t.id} className="bg-[#232a3b] rounded-xl border border-[#2e3548] p-4 sm:p-5">
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-semibold text-white">{t.subject}</span>
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${statusInfo.color}`}>
-                              {statusInfo.icon} {statusInfo.label}
-                            </span>
-                          </div>
-                          <p className="text-xs text-white/40 mt-1">
-                            {t.userName} · {t.userEmail} · {new Date(t.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </p>
-                        </div>
-                      </div>
-                      <p className="text-sm text-white/50 mb-3 leading-relaxed">{t.message}</p>
+        {tab === 'support' && ticketsLoading && (
+          <div className="flex justify-center py-12">
+            <div className="w-8 h-8 border-2 border-white/20 border-t-[#f97316] rounded-full animate-spin" />
+          </div>
+        )}
 
-                      {t.adminReply && (
-                        <div className="bg-[#2a3244] rounded-lg p-3 border-l-2 border-[#f97316] mb-3">
-                          <p className="text-[10px] font-semibold text-[#f97316] uppercase mb-1">Ваш ответ</p>
-                          <p className="text-xs text-white/60">{t.adminReply}</p>
-                          {t.repliedAt && (
-                            <p className="text-[10px] text-white/30 mt-1">{new Date(t.repliedAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</p>
+        {tab === 'support' && !ticketsLoading && activeTicket && (
+          <div className="bg-[#232a3b] rounded-xl border border-[#2e3548] overflow-hidden max-w-3xl">
+            {/* Chat header */}
+            <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-[#2e3548] bg-[#2a3244]">
+              <div className="flex items-center gap-3 min-w-0">
+                <button
+                  onClick={() => { setActiveTicket(null); setChatText(''); setChatError(''); }}
+                  className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-colors shrink-0"
+                  aria-label="К списку"
+                >
+                  <ArrowLeft size={16} />
+                </button>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-white truncate">{activeTicket.subject}</p>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold shrink-0 ${ticketStatusInfo(activeTicket.status).color}`}>
+                      {ticketStatusInfo(activeTicket.status).icon} {ticketStatusInfo(activeTicket.status).label}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-white/30 truncate">
+                    {activeTicket.userName} · {activeTicket.userEmail} · обращение №{activeTicket.id}
+                  </p>
+                </div>
+              </div>
+              {activeTicket.status !== 'Closed' && (
+                <button
+                  onClick={() => handleCloseTicket(activeTicket.id)}
+                  className="px-3 py-1.5 text-xs font-medium text-white/50 hover:bg-white/5 rounded-lg border border-[#2e3548] transition-colors shrink-0"
+                >
+                  Закрыть
+                </button>
+              )}
+            </div>
+
+            {/* Messages */}
+            <div className="px-3 sm:px-4 py-4 space-y-3 h-[420px] overflow-y-auto">
+              {activeTicket.messages?.map(m => {
+                const mine = m.senderRole === 'Admin';
+                return (
+                  <div key={m.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] sm:max-w-[75%] rounded-xl px-3.5 py-2.5 border ${
+                      mine
+                        ? 'bg-[#f97316]/12 border-[#f97316]/30'
+                        : 'bg-[#2a3244] border-[#2e3548]'
+                    }`}>
+                      {!mine && (
+                        <p className="text-[10px] font-semibold text-white/60 uppercase mb-1">{m.senderName || 'Пользователь'}</p>
+                      )}
+                      <p className="text-sm text-white/85 whitespace-pre-wrap break-words leading-relaxed">{m.body}</p>
+                      <p className="text-[10px] text-white/30 mt-1 text-right">{fmtTime(m.createdAt)}</p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Composer */}
+            <div className="border-t border-[#2e3548] p-3 sm:p-4">
+              {activeTicket.status === 'Closed' ? (
+                <p className="text-xs text-white/40 flex items-center gap-2 py-1">
+                  <Lock size={13} /> Обращение закрыто
+                </p>
+              ) : (
+                <>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <textarea
+                      value={chatText}
+                      onChange={e => setChatText(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          sendChatMessage();
+                        }
+                      }}
+                      placeholder="Введите ответ... (Enter — отправить, Shift+Enter — новая строка)"
+                      rows={2}
+                      maxLength={4000}
+                      className="flex-1 px-3 py-2.5 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316] resize-y"
+                    />
+                    <button
+                      onClick={sendChatMessage}
+                      disabled={chatSending || !chatText.trim()}
+                      className="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 justify-center disabled:opacity-50 sm:self-start"
+                    >
+                      {chatSending ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Send size={13} />}
+                      Отправить
+                    </button>
+                  </div>
+                  {chatError && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mt-2">{chatError}</p>}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'support' && !ticketsLoading && !activeTicket && (
+          tickets.length === 0 ? (
+            <div className="text-center py-12">
+              <LifeBuoy size={48} className="mx-auto text-white/10 mb-4" />
+              <p className="text-white/40 text-sm">Обращений пока нет</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {tickets.map(t => {
+                const statusInfo = ticketStatusInfo(t.status);
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => openChat(t.id)}
+                    className="w-full text-left bg-[#232a3b] rounded-xl border border-[#2e3548] p-4 sm:p-5 hover:border-[#f97316]/40 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-semibold text-white truncate">{t.subject}</span>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${statusInfo.color}`}>
+                            {statusInfo.icon} {statusInfo.label}
+                          </span>
+                          {t.unreadCount > 0 && (
+                            <span className="min-w-[18px] h-[18px] px-1 bg-[#f97316] text-white text-[10px] rounded-full flex items-center justify-center font-bold">
+                              {t.unreadCount}
+                            </span>
                           )}
                         </div>
-                      )}
-
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {t.status !== 'Closed' && replyingTo !== t.id && (
-                          <button onClick={() => { setReplyingTo(t.id); setReplyText(''); }}
-                            className="px-3 py-1.5 text-xs font-medium text-[#f97316] hover:bg-[#f97316]/10 rounded-lg border border-[#f97316]/20 transition-colors flex items-center gap-1.5">
-                            <Send size={12} /> {t.adminReply ? 'Ответить снова' : 'Ответить'}
-                          </button>
-                        )}
-                        {t.status !== 'Closed' && (
-                          <button onClick={() => handleCloseTicket(t.id)}
-                            className="px-3 py-1.5 text-xs font-medium text-white/50 hover:bg-white/5 rounded-lg border border-[#2e3548] transition-colors">
-                            Закрыть
-                          </button>
-                        )}
+                        <p className="text-xs text-white/40 mt-1">
+                          {t.userName} · {t.userEmail} · {fmtTime(t.lastMessageAt || t.createdAt)}
+                        </p>
                       </div>
-
-                      {replyingTo === t.id && (
-                        <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                          <textarea
-                            value={replyText}
-                            onChange={e => setReplyText(e.target.value)}
-                            placeholder="Введите ответ..."
-                            rows={3}
-                            className="flex-1 px-3 py-2.5 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316] resize-y"
-                          />
-                          <div className="flex sm:flex-col gap-2">
-                            <button onClick={() => handleReply(t.id)} disabled={!replyText.trim()}
-                              className="btn-primary px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-1.5 justify-center disabled:opacity-50">
-                              <Send size={13} /> Отправить
-                            </button>
-                            <button onClick={() => { setReplyingTo(null); setReplyText(''); }}
-                              className="px-4 py-2.5 text-sm font-medium text-white/50 hover:bg-white/5 rounded-lg transition-colors justify-center">
-                              Отмена
-                            </button>
-                          </div>
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
+                    <p className="text-sm text-white/50 mb-2 leading-relaxed truncate">{t.message}</p>
+                    <p className="text-[11px] text-[#f97316]">Открыть чат →</p>
+                  </button>
+                );
+              })}
+            </div>
+          )
         )}
       </div>
     </div>
@@ -464,7 +576,8 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
   const [title, setTitle] = useState(project?.title || '');
   const [description, setDescription] = useState(project?.description || '');
   const [fullDescription, setFullDescription] = useState(project?.fullDescription || '');
-  const [price, setPrice] = useState(project?.price || 0);
+  // строка, чтобы Backspace очищал «0» и не было ведущих нулей
+  const [price, setPrice] = useState(project?.price ? String(project.price) : '');
   const [categoryName, setCategoryName] = useState(project?.categoryId ? categories.find(c => c.id === project.categoryId)?.name || '' : '');
   const [technologies, setTechnologies] = useState<string[]>(project?.technologies || []);
   const [techInput, setTechInput] = useState('');
@@ -594,7 +707,7 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
       }
 
       const data = {
-        title, description, fullDescription, price,
+        title, description, fullDescription, price: Number(price || 0),
         categoryId: resolvedCategoryId, images, technologies, demo, isNew, popular,
       };
       if (project) {
@@ -649,7 +762,8 @@ function ProjectForm({ onBack, onCreated, categories, project }: ProjectFormProp
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1">Цена (&#8381;) *</label>
-              <input type="number" value={price} onChange={e => setPrice(Number(e.target.value))} required min={0}
+              <input type="number" value={price} required min={0}
+                onChange={e => setPrice(e.target.value.replace(/\D/g, '').replace(/^0+(?=\d)/, ''))}
                 className="w-full px-3 py-2 bg-[#2a3244] border border-[#2e3548] rounded-lg text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]" />
             </div>
             <div className="relative" ref={catRef}>
