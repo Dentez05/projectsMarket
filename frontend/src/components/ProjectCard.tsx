@@ -17,6 +17,12 @@ export default function ProjectCard({ project }: Props) {
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
   const image = project.images?.[0] || '';
+  const priceStr = project.price.toLocaleString('ru-RU');
+  const priceSize = priceStr.length > 11
+    ? 'text-sm sm:text-base'
+    : priceStr.length > 7
+    ? 'text-base sm:text-lg'
+    : 'text-lg sm:text-xl';
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!cardRef.current) return;
@@ -49,7 +55,7 @@ export default function ProjectCard({ project }: Props) {
         ref={cardRef}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] overflow-hidden card-hover group"
+        className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] overflow-hidden card-hover group flex flex-col"
         style={{ transform: `perspective(800px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`, transition: 'transform 0.15s ease-out' }}
       >
         <div className="relative overflow-hidden h-40 sm:h-44 lg:h-48 cursor-zoom-in" onClick={() => setLightbox(true)}>
@@ -77,7 +83,7 @@ export default function ProjectCard({ project }: Props) {
           </span>
         </div>
 
-        <div className="p-3.5 sm:p-4 lg:p-5 cursor-pointer" onClick={() => navigate(`/projects/${project.id}`)}>
+        <div className="p-3.5 sm:p-4 lg:p-5 cursor-pointer flex-1 flex flex-col" onClick={() => navigate(`/projects/${project.id}`)}>
           <h3 className="text-sm sm:text-base font-semibold text-white mb-1 sm:mb-1.5 line-clamp-1 group-hover:text-[#f97316] transition-colors">{project.title}</h3>
           <p className="text-xs sm:text-sm text-white/40 line-clamp-2 mb-3 sm:mb-4 leading-relaxed">{project.description}</p>
 
@@ -101,9 +107,9 @@ export default function ProjectCard({ project }: Props) {
             )}
           </div>
 
-          <div className="flex items-center justify-between" onClick={e => e.stopPropagation()}>
-            <span className="text-lg sm:text-xl font-bold text-white">{project.price.toLocaleString('ru-RU')} ₽</span>
-            <div className="flex gap-1.5 sm:gap-2">
+          <div className="flex items-center justify-between gap-2 min-w-0 mt-auto pt-1" onClick={e => e.stopPropagation()}>
+            <span className={`${priceSize} font-bold text-white whitespace-nowrap`}>{priceStr} ₽</span>
+            <div className="flex gap-1.5 sm:gap-2 flex-shrink-0">
               <Link to={`/projects/${project.id}`} className="p-1.5 sm:p-2 rounded-lg border border-[#2e3548] text-white/50 hover:border-[#f97316]/30 hover:text-[#f97316] transition-colors" title="Подробнее">
                 <Eye size={14} className="sm:w-4 sm:h-4" />
               </Link>
@@ -113,11 +119,11 @@ export default function ProjectCard({ project }: Props) {
                   if (!ok) navigate('/login');
                 }}
                 disabled={inCart}
-                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
                   inCart ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 cursor-default' : 'btn-primary'
                 }`}
               >
-                {inCart ? <><Check size={13} /> <span>В корзине</span></> : <><ShoppingCart size={13} /> <span>В корзину</span></>}
+                {inCart ? <><Check size={13} className="shrink-0" /> <span>В корзине</span></> : <><ShoppingCart size={13} className="shrink-0" /> <span>В корзину</span></>}
               </button>
             </div>
           </div>

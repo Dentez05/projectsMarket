@@ -43,7 +43,7 @@ export default function Footer() {
               </a>
               <span className="flex items-center gap-2.5 text-white/40">
                 <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/5 flex items-center justify-center"><MapPin size={12} className="sm:text-[13px]" /></div>
-                Россия, Москва
+                Россия, Казань
               </span>
             </div>
           </div>
