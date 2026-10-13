@@ -5,12 +5,14 @@ import { refreshAccessToken } from '../api/client';
 import { cartApi } from '../api/cart';
 import { ordersApi } from '../api/orders';
 import { projectsApi } from '../api/projects';
+import { favoritesApi } from '../api/favorites';
 
 export interface User {
   id: number;
   name: string;
   email: string;
   role: 'user' | 'admin';
+  emailConfirmed?: boolean;
 }
 
 export interface CartItem {
@@ -48,6 +50,9 @@ interface AppState {
   checkout: () => Promise<string | null>;
   refreshOrders: () => Promise<void>;
   refreshCart: () => Promise<void>;
+  favoriteIds: number[];
+  isFavorite: (projectId: number) => boolean;
+  toggleFavorite: (projectId: number) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppState | null>(null);
@@ -59,6 +64,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<ApiProject[]>([]);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [authReady, setAuthReady] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
 
   const projectMap = useMemo(() => new Map(projects.map(p => [p.id, p])), [projects]);
   const projectMapRef = useRef(projectMap);
@@ -80,12 +86,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => setProjectsLoaded(true));
   }, []);
 
-  const applyProfile = useCallback((data: { id: number; fullName: string; email: string; role: string }) => {
+  const applyProfile = useCallback((data: { id: number; fullName: string; email: string; role: string; emailConfirmed?: boolean }) => {
     setUser({
       id: data.id,
       name: data.fullName,
       email: data.email,
       role: data.role.toLowerCase() as 'user' | 'admin',
+      emailConfirmed: data.emailConfirmed,
     });
   }, []);
 
@@ -93,6 +100,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setCart([]);
     setOrders([]);
+    setFavoriteIds([]);
   }, []);
 
   useEffect(() => {
@@ -167,8 +175,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    if (user) refreshOrders();
+    if (user) {
+      refreshOrders();
+      favoritesApi.getMy().then(setFavoriteIds).catch(() => setFavoriteIds([]));
+    }
   }, [user, refreshOrders]);
+
+  const toggleFavorite = async (projectId: number): Promise<boolean> => {
+    if (!user) return false;
+    const wasFav = favoriteIds.includes(projectId);
+    setFavoriteIds(prev => wasFav ? prev.filter(id => id !== projectId) : [...prev, projectId]);
+    try {
+      const res = await favoritesApi.toggle(projectId);
+      return res.favorited;
+    } catch {
+      setFavoriteIds(prev => wasFav ? [...prev, projectId] : prev.filter(id => id !== projectId));
+      return wasFav;
+    }
+  };
+
+  const isFavorite = (projectId: number) => favoriteIds.includes(projectId);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -179,6 +205,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         name: res.user.fullName,
         email: res.user.email,
         role: res.user.role.toLowerCase() as 'user' | 'admin',
+        emailConfirmed: res.user.emailConfirmed,
       });
       return true;
     } catch {
@@ -195,6 +222,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         name: res.user.fullName,
         email: res.user.email,
         role: res.user.role.toLowerCase() as 'user' | 'admin',
+        emailConfirmed: res.user.emailConfirmed,
       });
       return true;
     } catch {
@@ -206,10 +234,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // отзываем refresh-токен на сервере (httpOnly-cookie)
     authApi.logout().catch(() => {});
     localStorage.removeItem('token');
-    setUser(null);
-    setCart([]);
-    setOrders([]);
-  };
+      setUser(null);
+      setCart([]);
+      setOrders([]);
+      setFavoriteIds([]);
+    };
 
   const addToCart = async (project: ApiProject): Promise<boolean> => {
     if (!user) return false;
@@ -255,6 +284,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addToCart, removeFromCart, isInCart,
       login, register, logout, checkout,
       refreshOrders, refreshCart,
+      favoriteIds, isFavorite, toggleFavorite,
     }}>
       {children}
     </AppContext.Provider>

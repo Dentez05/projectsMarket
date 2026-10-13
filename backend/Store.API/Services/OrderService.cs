@@ -36,7 +36,32 @@ namespace Store.API.Services
                 throw new ArgumentException(
                     $"Проект «{hidden.Project.Title}» снят с продажи — уберите его из корзины");
 
-            var totalAmount = cartItems.Sum(c => c.Project.Price);
+            var subtotal = cartItems.Sum(c => c.Project.Price);
+            var discount = 0m;
+            string? promoCodeApplied = null;
+
+            if (!string.IsNullOrWhiteSpace(request.PromoCode))
+            {
+                var promo = await _orderRepository.GetPromoCodeAsync(request.PromoCode.Trim());
+                if (promo == null || !promo.IsActive)
+                    throw new ArgumentException("Промокод не найден или отключён");
+                if (promo.ExpiresAt != null && promo.ExpiresAt <= DateTime.UtcNow)
+                    throw new ArgumentException("Срок действия промокода истёк");
+                if (promo.MaxUses != null && promo.UsedCount >= promo.MaxUses)
+                    throw new ArgumentException("Промокод больше не действует (лимит использован)");
+                if (promo.MinOrderAmount != null && subtotal < promo.MinOrderAmount)
+                    throw new ArgumentException(
+                        $"Минимальная сумма для этого промокода — {promo.MinOrderAmount.Value:F0} ₽");
+
+                discount = promo.Type == "Percent"
+                    ? Math.Round(subtotal * promo.Value / 100m, 2)
+                    : Math.Min(promo.Value, subtotal);
+
+                promo.UsedCount++;
+                promoCodeApplied = promo.Code;
+            }
+
+            var totalAmount = Math.Max(subtotal - discount, 0m);
 
             var order = new Order
             {
@@ -46,6 +71,8 @@ namespace Store.API.Services
                 OrderNumber = GenerateOrderNumber(),
                 TotalAmount = totalAmount,
                 Status = "Pending",
+                PromoCode = promoCodeApplied,
+                DiscountAmount = discount,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -69,8 +96,9 @@ namespace Store.API.Services
             await _cartRepository.RemoveRangeAsync(cartItems);
             await _cartRepository.SaveChangesAsync();
 
-            _logger.LogInformation("Создан заказ {OrderNumber} для пользователя {UserId} на сумму {TotalAmount}",
-                order.OrderNumber, userId, totalAmount);
+            _logger.LogInformation(
+                "Создан заказ {OrderNumber} для пользователя {UserId}: {Total} ₽ (скидка {Discount} ₽, промо {Promo})",
+                order.OrderNumber, userId, totalAmount, discount, promoCodeApplied ?? "—");
 
             return await MapToResponse(order);
         }
@@ -149,6 +177,8 @@ namespace Store.API.Services
                 PaymentId = order.PaymentId,
                 UserName = order.UserName,
                 UserEmail = order.UserEmail,
+                PromoCode = order.PromoCode,
+                DiscountAmount = order.DiscountAmount,
                 Items = order.OrderItems.Select(oi => new OrderItemResponse
                 {
                     ProjectId = oi.ProjectId,

@@ -104,6 +104,64 @@ namespace Auth.API.Controllers
             return Ok(user);
         }
 
+        [HttpPost("confirm-email")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request)
+        {
+            try
+            {
+                await _authService.ConfirmEmailAsync(request.Token);
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [EnableRateLimiting("auth")]
+        [HttpPost("resend-confirmation")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResendConfirmation([FromBody] ForgotPasswordRequest request)
+        {
+            await _authService.ResendConfirmationAsync(request.Email);
+            // Всегда 200 — не раскрываем, существует ли аккаунт
+            return Ok(new { ok = true });
+        }
+
+        [EnableRateLimiting("auth")]
+        [HttpPost("forgot-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            try
+            {
+                await _authService.ForgotPasswordAsync(request.Email);
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка запроса сброса пароля");
+                return Ok(new { ok = true });
+            }
+        }
+
+        [EnableRateLimiting("auth")]
+        [HttpPost("reset-password")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            try
+            {
+                await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         // Ответ клиенту: только access-токен и пользователь, refresh — только в cookie
         private static object ToClientResponse(AuthResponse result)
         {

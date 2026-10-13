@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Store.API.Data;
+using Store.API.Email;
+using Store.API.Hubs;
 using Store.API.Models.DTOs;
 using Store.API.Models.Entities;
 
@@ -14,11 +17,15 @@ namespace Store.API.Controllers
     {
         private readonly StoreDbContext _context;
         private readonly ILogger<SupportController> _logger;
+        private readonly IEmailService _emailService;
+        private readonly IHubContext<SupportHub> _hubContext;
 
-        public SupportController(StoreDbContext context, ILogger<SupportController> logger)
+        public SupportController(StoreDbContext context, ILogger<SupportController> logger, IEmailService emailService, IHubContext<SupportHub> hubContext)
         {
             _context = context;
             _logger = logger;
+            _emailService = emailService;
+            _hubContext = hubContext;
         }
 
         [HttpPost]
@@ -58,6 +65,8 @@ namespace Store.API.Controllers
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Создано обращение в поддержку #{TicketId} от пользователя {UserId}", ticket.Id, userId);
+
+            await BroadcastAsync(ticket, "ticketCreated");
 
             var detail = await GetDetailAsync(ticket.Id);
             return CreatedAtAction(nameof(GetTicket), new { id = ticket.Id }, detail);
@@ -165,8 +174,38 @@ namespace Store.API.Controllers
 
             _logger.LogInformation("Сообщение в обращение #{TicketId} от {Role} {UserId}", id, isAdmin ? "Admin" : "User", userId);
 
+            await BroadcastAsync(ticket, "newMessage");
+
+            if (isAdmin)
+                await SendAdminReplyEmailAsync(ticket);
+
             var detail = await GetDetailAsync(id);
             return Ok(detail);
+        }
+
+        private async Task SendAdminReplyEmailAsync(SupportTicket ticket)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(ticket.UserEmail))
+                    return;
+
+                await _emailService.SendAsync(
+                    ticket.UserEmail,
+                    $"Вам ответили в поддержке — обращение #{ticket.Id}",
+                    $"""
+                    <p>Здравствуйте, {System.Net.WebUtility.HtmlEncode(ticket.UserName)}!</p>
+                    <p>Поддержка ответила на ваше обращение <b>#{ticket.Id} «{System.Net.WebUtility.HtmlEncode(ticket.Subject)}»</b>.</p>
+                    <p>Ответить и посмотреть переписку можно в разделе «Поддержка» на сайте.</p>
+                    """);
+
+                _logger.LogInformation("Отправлено уведомление о ответе поддержки по обращению #{TicketId} на {Email}",
+                    ticket.Id, ticket.UserEmail);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Не удалось отправить письмо о ответе поддержки по обращению #{TicketId}", ticket.Id);
+            }
         }
 
         [HttpPost("{id:int}/read")]
@@ -185,6 +224,8 @@ namespace Store.API.Controllers
 
             await _context.SaveChangesAsync();
 
+            await BroadcastAsync(ticket, "ticketUpdated");
+
             var detail = await GetDetailAsync(id);
             return Ok(detail);
         }
@@ -202,8 +243,26 @@ namespace Store.API.Controllers
             ticket.Status = "Closed";
             await _context.SaveChangesAsync();
 
+            await BroadcastAsync(ticket, "ticketUpdated");
+
             var detail = await GetDetailAsync(id);
             return Ok(detail);
+        }
+
+        // Рассылка события через SignalR: владельцу тикета + всем админам
+        private async Task BroadcastAsync(SupportTicket ticket, string evt)
+        {
+            try
+            {
+                var payload = new { ticketId = ticket.Id, status = ticket.Status, lastMessageAt = ticket.LastMessageAt };
+                await _hubContext.Clients.Group($"user_{ticket.UserId}").SendAsync(evt, payload);
+                await _hubContext.Clients.Group("admins").SendAsync(evt, payload);
+            }
+            catch (Exception ex)
+            {
+                // SignalR не должен ломать REST-запрос
+                _logger.LogWarning(ex, "Не удалось разослать событие {Event} по тикету #{TicketId}", evt, ticket.Id);
+            }
         }
 
         private async Task<bool> CanAccessAsync(int id)

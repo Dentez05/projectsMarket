@@ -9,5 +9,9 @@ namespace Auth.API.Services
         Task<AuthResponse?> RefreshAsync(string refreshToken, string ip);
         Task LogoutAsync(string refreshToken);
         Task<UserDto> GetUserByIdAsync(int id);
+        Task ConfirmEmailAsync(string token);
+        Task ResendConfirmationAsync(string email);
+        Task ForgotPasswordAsync(string email);
+        Task ResetPasswordAsync(string token, string newPassword);
     }
 }

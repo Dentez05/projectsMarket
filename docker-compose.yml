@@ -33,6 +33,13 @@ services:
       Admin__Email: "${ADMIN_EMAIL:-}"
       Admin__Password: "${ADMIN_PASSWORD:-}"
       Cors__Origins: "${CORS_ORIGINS:-http://localhost:5010,http://localhost:5173}"
+      App__FrontendUrl: "${PUBLIC_URL:-http://localhost:5010}"
+      Email__Provider: "${EMAIL_PROVIDER:-log}"
+      Email__From: "${EMAIL_FROM:-ProjectMarket <noreply@projectsmarket.local>}"
+      Smtp__Host: "${SMTP_HOST:-}"
+      Smtp__Port: "${SMTP_PORT:-587}"
+      Smtp__User: "${SMTP_USER:-}"
+      Smtp__Password: "${SMTP_PASSWORD:-}"
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,6 +70,13 @@ services:
       YooKassa__WebhookUser: "${YOOKASSA_WEBHOOK_USER:-}"
       YooKassa__WebhookPassword: "${YOOKASSA_WEBHOOK_PASSWORD:-}"
       Cors__Origins: "${CORS_ORIGINS:-http://localhost:5010,http://localhost:5173}"
+      Email__Provider: "${EMAIL_PROVIDER:-log}"
+      Email__From: "${EMAIL_FROM:-ProjectMarket <noreply@projectsmarket.local>}"
+      Smtp__Host: "${SMTP_HOST:-}"
+      Smtp__Port: "${SMTP_PORT:-587}"
+      Smtp__User: "${SMTP_USER:-}"
+      Smtp__Password: "${SMTP_PASSWORD:-}"
+      App__BaseUrl: "${PUBLIC_URL:-http://localhost:5010}"
     volumes:
       - store_uploads:/app/wwwroot/uploads
       - store_private:/app/uploads-private

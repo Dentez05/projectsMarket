@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, ExternalLink, Calendar, Tag, ChevronRight, Check, ArrowLeft, Eye, Lock, Ban } from 'lucide-react';
+import { ShoppingCart, ExternalLink, Calendar, Tag, ChevronRight, Check, ArrowLeft, Eye, Lock, Ban, Star } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import type { ApiProject } from '../api/types';
 import ProjectCard from '../components/ProjectCard';
+import ReviewsSection from '../components/ReviewsSection';
+import { useSeo } from '../utils/seo';
 
 function PreviewSection({ project }: { project: ApiProject }) {
   const screenshots = project.previewImages || [];
@@ -92,7 +94,7 @@ function PreviewFallback() {
 export default function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { addToCart, isInCart, projects } = useApp();
+  const { addToCart, isInCart, projects, orders } = useApp();
   const [project, setProject] = useState<ApiProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
@@ -105,6 +107,40 @@ export default function ProjectDetail() {
       .catch(() => setProject(null))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useSeo({
+    title: project ? project.title : 'Проект',
+    description: project?.description || undefined,
+    path: id ? `/projects/${id}` : undefined,
+    noindex: project != null && project.status !== 'Active',
+    image: project?.images?.[0] || undefined,
+    jsonLd: project
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'Product',
+          name: project.title,
+          description: project.description,
+          image: project.images?.[0] || undefined,
+          offers: {
+            '@type': 'Offer',
+            price: project.price,
+            priceCurrency: 'RUB',
+            availability: project.status === 'Active'
+              ? 'https://schema.org/InStock'
+              : 'https://schema.org/OutOfStock',
+          },
+          ...(project.averageRating != null && project.reviewsCount
+            ? {
+                aggregateRating: {
+                  '@type': 'AggregateRating',
+                  ratingValue: project.averageRating,
+                  reviewCount: project.reviewsCount,
+                },
+              }
+            : {}),
+        }
+      : undefined,
+  });
 
   if (loading) {
     return (
@@ -179,6 +215,12 @@ export default function ProjectDetail() {
             <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-white/40 mb-4 sm:mb-5">
               <span className="flex items-center gap-1 sm:gap-1.5"><Calendar size={13} className="sm:w-3.5 sm:h-3.5" /> {new Date(project.createdAt).toLocaleDateString('ru-RU')}</span>
               <span className="flex items-center gap-1 sm:gap-1.5"><Tag size={13} className="sm:w-3.5 sm:h-3.5" /> {project.categoryName}</span>
+              {project.averageRating != null && project.reviewsCount != null && project.reviewsCount > 0 && (
+                <span className="flex items-center gap-1">
+                  <Star size={13} className="text-amber-400 fill-current" />
+                  {project.averageRating.toFixed(1)} ({project.reviewsCount})
+                </span>
+              )}
             </div>
             <p className="text-white/60 leading-relaxed mb-5 sm:mb-6 text-sm sm:text-base">{project.fullDescription}</p>
             <div className="mb-6 sm:mb-8">
@@ -218,6 +260,8 @@ export default function ProjectDetail() {
         {project.previewImages && project.previewImages.length > 0
           ? <PreviewSection project={project} />
           : <PreviewFallback />}
+
+        <ReviewsSection projectId={project.id} orders={orders} />
 
         {similar.length > 0 && (
           <div>

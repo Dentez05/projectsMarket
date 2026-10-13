@@ -22,10 +22,16 @@ namespace Store.API.Services
         {
             var projects = await _projectRepository.GetAllAsync();
             var sales = await _projectRepository.GetSalesCountsAsync();
+            var ratings = await _projectRepository.GetRatingSummariesAsync();
             return projects.Select(p =>
             {
                 var response = MapToResponse(p);
                 response.SoldCount = sales.GetValueOrDefault(p.Id);
+                if (ratings.TryGetValue(p.Id, out var r))
+                {
+                    response.AverageRating = r.Average;
+                    response.ReviewsCount = r.Count;
+                }
                 return response;
             });
         }
@@ -33,7 +39,18 @@ namespace Store.API.Services
         public async Task<ProjectResponse?> GetByIdAsync(int id)
         {
             var project = await _projectRepository.GetByIdWithCategoryAsync(id);
-            return project == null ? null : MapToResponse(project);
+            if (project == null) return null;
+
+            var response = MapToResponse(project);
+            response.SoldCount = await _projectRepository.GetSoldCountAsync(id);
+
+            var ratings = await _projectRepository.GetRatingSummariesAsync();
+            if (ratings.TryGetValue(id, out var r))
+            {
+                response.AverageRating = r.Average;
+                response.ReviewsCount = r.Count;
+            }
+            return response;
         }
 
         public async Task<ProjectResponse> CreateAsync(CreateProjectRequest request, int createdByUserId)

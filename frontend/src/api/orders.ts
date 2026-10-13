@@ -6,8 +6,11 @@ export const ordersApi = {
 
   getById: (id: number) => api.get<ApiOrder>(`/Orders/${id}`),
 
-  create: (comment?: string) =>
-    api.post<ApiOrder>('/Orders', { comment: comment || null }),
+  create: (comment?: string, promoCode?: string) =>
+    api.post<ApiOrder>('/Orders', {
+      comment: comment || null,
+      promoCode: promoCode?.trim() || null,
+    }),
 
   updateStatus: (id: number, status: string) =>
     api.patch<{ status: string }>(`/Orders/${id}/status`, { status }),

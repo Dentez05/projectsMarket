@@ -29,6 +29,12 @@ builder.Services.AddDbContext<StoreDbContext>(options =>
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
+// Email: log (заглушка в лог, по умолчанию) | smtp (MailKit, Smtp__* в .env)
+if (string.Equals(builder.Configuration["Email:Provider"], "smtp", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<Store.API.Email.IEmailService, Store.API.Email.SmtpEmailService>();
+else
+    builder.Services.AddScoped<Store.API.Email.IEmailService, Store.API.Email.LoggingEmailService>();
+
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<ICartRepository, CartRepository>();
 
@@ -57,8 +63,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "projectsmarket-client",
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
         };
+
+        // SignalR не может передать JWT в заголовке — хаб читает токен из query access_token
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs"))
+                    context.Token = accessToken;
+                return Task.CompletedTask;
+            }
+        };
     });
 
+builder.Services.AddSignalR();
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -177,6 +197,7 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<Store.API.Hubs.SupportHub>("/hubs/support");
 
 app.MapGet("/health", async (StoreDbContext db) =>
 {
@@ -185,5 +206,37 @@ app.MapGet("/health", async (StoreDbContext db) =>
         : Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
     return result;
 });
+
+// sitemap.xml: главная, каталог, все Active-проекты (публичный, без auth)
+app.MapGet("/sitemap.xml", async (StoreDbContext db, IConfiguration config) =>
+{
+    var baseUrl = (config["App:BaseUrl"] ?? "http://localhost:5010").TrimEnd('/');
+    var today = DateTime.UtcNow.ToString("yyyy-MM-dd");
+
+    var projectIds = await db.Projects
+        .Where(p => p.Status == "Active")
+        .OrderBy(p => p.Id)
+        .Select(p => p.Id)
+        .ToListAsync();
+
+    var sb = new System.Text.StringBuilder();
+    sb.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+    sb.AppendLine("<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">");
+    foreach (var (path, priority) in new[]
+    {
+        ("/", "1.0"),
+        ("/projects", "0.9"),
+    })
+    {
+        sb.AppendLine($"  <url><loc>{baseUrl}{path}</loc><lastmod>{today}</lastmod><priority>{priority}</priority></url>");
+    }
+    foreach (var id in projectIds)
+    {
+        sb.AppendLine($"  <url><loc>{baseUrl}/projects/{id}</loc><lastmod>{today}</lastmod><priority>0.8</priority></url>");
+    }
+    sb.AppendLine("</urlset>");
+
+    return Results.Content(sb.ToString(), "application/xml", System.Text.Encoding.UTF8);
+}).AllowAnonymous();
 
 app.Run();

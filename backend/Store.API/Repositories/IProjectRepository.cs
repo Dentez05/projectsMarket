@@ -11,6 +11,8 @@ namespace Store.API.Repositories
         Task<Project?> GetByIdWithCategoryAsync(int id);
         Task<List<Project>> GetByUserIdAsync(int userId);
         Task<Dictionary<int, int>> GetSalesCountsAsync();
+        Task<int> GetSoldCountAsync(int projectId);
+        Task<Dictionary<int, (double Average, int Count)>> GetRatingSummariesAsync();
 
         Task AddAsync(Project project);
         Task UpdateAsync(Project project);

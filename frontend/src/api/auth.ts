@@ -13,4 +13,16 @@ export const authApi = {
   refresh: () => api.post<AuthResponse>('/Auth/refresh'),
 
   logout: () => api.post<{ ok: boolean }>('/Auth/logout'),
+
+  confirmEmail: (token: string) =>
+    api.post<{ ok: boolean }>('/Auth/confirm-email', { token }),
+
+  resendConfirmation: (email: string) =>
+    api.post<{ ok: boolean }>('/Auth/resend-confirmation', { email }),
+
+  forgotPassword: (email: string) =>
+    api.post<{ ok: boolean }>('/Auth/forgot-password', { email }),
+
+  resetPassword: (token: string, newPassword: string) =>
+    api.post<{ ok: boolean }>('/Auth/reset-password', { token, newPassword }),
 };

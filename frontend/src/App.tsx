@@ -10,6 +10,9 @@ import Cart from './pages/Cart';
 import Profile from './pages/Profile';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ConfirmEmail from './pages/ConfirmEmail';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Admin from './pages/Admin';
 import Support from './pages/Support';
 import NotFound from './pages/NotFound';
@@ -38,6 +41,9 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/confirm-email" element={<ConfirmEmail />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/" element={<Layout><Home /></Layout>} />
           <Route path="/projects" element={<Layout><Projects /></Layout>} />
           <Route path="/projects/:id" element={<Layout><ProjectDetail /></Layout>} />

@@ -1,19 +1,29 @@
 import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, ShoppingBag, Send, MessageCircle, ArrowRight } from 'lucide-react';
+import { Trash2, ShoppingBag, Send, MessageCircle, ArrowRight, Tag, Check } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { ordersApi } from '../api/orders';
 import { paymentsApi } from '../api/payments';
 import { useToast } from '../hooks/useToast';
 import ToastContainer from '../components/ui/Toast';
+import { useSeo } from '../utils/seo';
 
 export default function Cart() {
+  useSeo({ title: 'Корзина', noindex: true });
   const { cart, removeFromCart, user, refreshCart } = useApp();
   const navigate = useNavigate();
   const { toasts, addToast, removeToast } = useToast();
   const [loading, setLoading] = useState(false);
   const checkoutRef = useRef(false);
   const total = cart.reduce((sum, i) => sum + i.price, 0);
+  const [promoInput, setPromoInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [promoError, setPromoError] = useState('');
+
+  // Клиентский предпросмотр скидки; сервер пересчитает и валидирует заново
+  const previewDiscount = appliedPromo
+    ? null // точную сумму сервер посчитает при оформлении; показываем только факт применения
+    : 0;
 
   const handleCheckout = async () => {
     if (!user) { navigate('/login'); return; }
@@ -21,7 +31,7 @@ export default function Cart() {
     checkoutRef.current = true;
     setLoading(true);
     try {
-      const order = await ordersApi.create();
+      const order = await ordersApi.create(undefined, appliedPromo ?? undefined);
       await refreshCart();
       try {
         const { confirmationUrl } = await paymentsApi.create(order.id);
@@ -29,9 +39,14 @@ export default function Cart() {
       } catch {
         addToast(`Заказ ${order.orderNumber} оформлен! Оплата будет доступна в личном кабинете.`, 'success');
       }
+      if (order.discountAmount && order.discountAmount > 0) {
+        addToast(`Применена скидка ${order.discountAmount.toLocaleString('ru-RU')} ₽`, 'success');
+      }
       setTimeout(() => navigate('/profile'), 500);
-    } catch {
-      addToast('Ошибка при оформлении заказа', 'error');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      addToast(msg || 'Ошибка при оформлении заказа', 'error');
+      setPromoError(msg.includes('Промокод') || msg.includes('промокода') ? msg : '');
     }
     setLoading(false);
     checkoutRef.current = false;
@@ -103,6 +118,41 @@ export default function Cart() {
                     <span className="font-medium text-white/70 ml-2 flex-shrink-0">{item.price.toLocaleString('ru-RU')} &#8381;</span>
                   </div>
                 ))}
+              </div>
+              <div className="mb-4 sm:mb-5">
+                <label className="block text-xs font-medium text-white/40 mb-1.5">Промокод</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={promoInput}
+                    onChange={e => { setPromoInput(e.target.value.toUpperCase()); setPromoError(''); }}
+                    placeholder="SALE10"
+                    className="flex-1 min-w-0 px-3 py-2 bg-[#2a3244] border border-[#2e3548] rounded-lg text-xs sm:text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]/50 transition-all uppercase"
+                  />
+                  {appliedPromo ? (
+                    <button
+                      onClick={() => { setAppliedPromo(null); setPromoInput(''); setPromoError(''); }}
+                      className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap"
+                      title="Убрать промокод"
+                    >
+                      <Check size={13} /> {appliedPromo}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        const code = promoInput.trim();
+                        if (!code) return;
+                        setAppliedPromo(code);
+                        setPromoError('');
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors whitespace-nowrap"
+                    >
+                      <Tag size={13} /> Применить
+                    </button>
+                  )}
+                </div>
+                {promoError && <p className="text-[11px] text-red-400 mt-1.5">{promoError}</p>}
+                <p className="text-[10px] text-white/25 mt-1.5">Скидка проверяется сервером при оформлении</p>
               </div>
               <div className="border-t border-[#2e3548] pt-3.5 sm:pt-4 flex justify-between items-center mb-4 sm:mb-5">
                 <span className="font-semibold text-white text-sm sm:text-base">Итого</span>

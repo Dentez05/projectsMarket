@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useApp } from '../store/AppContext';
 import ProjectCard from '../components/ProjectCard';
 import ScrollReveal from '../components/ui/ScrollReveal';
+import { useSeo } from '../utils/seo';
 
 const FEATURES = [
   { icon: <Zap size={24} className="text-[#f97316]" />, title: 'Быстрый старт', desc: 'Получите готовый проект за несколько минут. Никакого ожидания разработки.' },
@@ -23,6 +24,25 @@ export default function Home() {
   const visible = useMemo(() => projects.filter(p => p.status === 'Active'), [projects]);
   const popular = visible.filter(p => p.popular).slice(0, 4);
   const newest = visible.filter(p => p.isNew).slice(0, 4);
+
+  useSeo({
+    title: 'ProjectMarket — Маркетплейс готовых IT-проектов',
+    description: 'Покупайте готовые IT-проекты: e-commerce, CRM, дашборды, мобильные приложения. Запускайте бизнес быстрее с проверенными решениями.',
+    keywords: 'IT проекты, маркетплейс, e-commerce, CRM, дашборд, купить проект, готовые решения',
+    path: '/',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: 'ProjectMarket',
+      url: '/',
+      description: 'Маркетплейс готовых IT-проектов',
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: '/projects?search={search_term_string}',
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  });
 
   const categories = useMemo(() => {
     const names = [...new Set(visible.map(p => p.categoryName).filter(Boolean))];

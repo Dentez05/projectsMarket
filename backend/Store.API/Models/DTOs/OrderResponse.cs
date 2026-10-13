@@ -10,6 +10,8 @@
         public string PaymentId { get; set; } = null!;
         public string UserName { get; set; } = string.Empty;
         public string UserEmail { get; set; } = string.Empty;
+        public string? PromoCode { get; set; }
+        public decimal DiscountAmount { get; set; }
         public List<OrderItemResponse> Items { get; set; } = new();
     }
 }

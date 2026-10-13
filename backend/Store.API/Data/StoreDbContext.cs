@@ -18,6 +18,9 @@ namespace Store.API.Data
         public DbSet<ProjectFile> ProjectFiles { get; set; }
         public DbSet<SupportTicket> SupportTickets { get; set; }
         public DbSet<SupportMessage> SupportMessages { get; set; }
+        public DbSet<Favorite> Favorites { get; set; }
+        public DbSet<Review> Reviews { get; set; }
+        public DbSet<PromoCode> PromoCodes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -131,6 +134,45 @@ namespace Store.API.Data
                     .WithMany(t => t.Messages)
                     .HasForeignKey(e => e.TicketId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Favorite>(entity =>
+            {
+                entity.ToTable("favorites");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.UserId, e.ProjectId }).IsUnique();
+                entity.HasIndex(e => e.UserId);
+
+                entity.HasOne(e => e.Project)
+                    .WithMany()
+                    .HasForeignKey(e => e.ProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Review>(entity =>
+            {
+                entity.ToTable("reviews");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.UserId, e.ProjectId }).IsUnique();
+                entity.HasIndex(e => e.ProjectId);
+                entity.Property(e => e.Rating).IsRequired();
+                entity.Property(e => e.Comment).HasMaxLength(2000);
+
+                entity.HasOne(e => e.Project)
+                    .WithMany()
+                    .HasForeignKey(e => e.ProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<PromoCode>(entity =>
+            {
+                entity.ToTable("promo_codes");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.Code).IsUnique();
+                entity.Property(e => e.Code).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Type).IsRequired().HasMaxLength(20);
+                entity.Property(e => e.Value).HasColumnType("decimal(10,2)");
+                entity.Property(e => e.MinOrderAmount).HasColumnType("decimal(10,2)");
             });
         }
 

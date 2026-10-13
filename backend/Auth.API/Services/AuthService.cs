@@ -3,6 +3,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using Auth.API.Data;
+using Auth.API.Email;
 using Auth.API.Models.Entities;
 using Auth.API.Models.DTOs;
 using System.Security.Claims;
@@ -15,15 +16,18 @@ namespace Auth.API.Services
         private readonly AuthDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly ILogger<AuthService> _logger;
+        private readonly IEmailService _emailService;
 
         public AuthService(
             AuthDbContext context,
             IConfiguration configuration,
-            ILogger<AuthService> logger)
+            ILogger<AuthService> logger,
+            IEmailService emailService)
         {
             _context = context;
             _configuration = configuration;
             _logger = logger;
+            _emailService = emailService;
         }
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request, string ip)
@@ -48,6 +52,8 @@ namespace Auth.API.Services
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Новый пользователь зарегистрирован: {Email}", user.Email);
+
+            await SendConfirmationEmailAsync(user);
 
             return await IssueSessionAsync(user, ip);
         }
@@ -138,6 +144,154 @@ namespace Auth.API.Services
         {
             var user = await _context.Users.FindAsync(id);
             return user == null ? null : MapToDto(user);
+        }
+
+        public async Task ConfirmEmailAsync(string token)
+        {
+            var stored = await FindAuthTokenAsync(token, "Confirm");
+            if (stored == null)
+                throw new Exception("Ссылка недействительна или устарела");
+
+            stored.UsedAt = DateTime.UtcNow;
+
+            var user = await _context.Users.FindAsync(stored.UserId);
+            if (user == null)
+                throw new Exception("Пользователь не найден");
+
+            if (!user.EmailConfirmed)
+            {
+                user.EmailConfirmed = true;
+                user.UpdatedAt = DateTime.UtcNow;
+                _logger.LogInformation("Email подтверждён: {Email}", user.Email);
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task ResendConfirmationAsync(string email)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            // Не раскрываем, существует ли аккаунт
+            if (user == null || user.EmailConfirmed)
+                return;
+
+            await SendConfirmationEmailAsync(user);
+        }
+
+        public async Task ForgotPasswordAsync(string email)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            // Не раскрываем, существует ли аккаунт — всегда «отправляем»
+            if (user == null)
+                return;
+
+            // Отзываем прошлые непротухшие токены сброса
+            var stale = await _context.AuthTokens
+                .Where(t => t.UserId == user.Id
+                    && t.Purpose == "Reset"
+                    && t.UsedAt == null
+                    && t.ExpiresAt > DateTime.UtcNow)
+                .ToListAsync();
+            foreach (var t in stale)
+                t.UsedAt = DateTime.UtcNow;
+
+            var token = GenerateAuthTokenValue();
+            _context.AuthTokens.Add(new AuthToken
+            {
+                UserId = user.Id,
+                Purpose = "Reset",
+                TokenHash = HashToken(token),
+                ExpiresAt = DateTime.UtcNow.AddHours(1)
+            });
+            await _context.SaveChangesAsync();
+
+            var link = $"{GetFrontendUrl()}/reset-password?token={Uri.EscapeDataString(token)}";
+            await _emailService.SendAsync(
+                user.Email,
+                "Сброс пароля — ProjectMarket",
+                $"""
+                <p>Здравствуйте, {System.Net.WebUtility.HtmlEncode(user.FullName)}!</p>
+                <p>Мы получили запрос на сброс пароля для вашего аккаунта.</p>
+                <p><a href="{link}">Нажмите здесь, чтобы задать новый пароль</a> (действует 1 час).</p>
+                <p>Если это были не вы — просто проигнорируйте письмо.</p>
+                """);
+
+            _logger.LogInformation("Отправлена ссылка сброса пароля на {Email}", user.Email);
+        }
+
+        public async Task ResetPasswordAsync(string token, string newPassword)
+        {
+            var stored = await FindAuthTokenAsync(token, "Reset");
+            if (stored == null)
+                throw new Exception("Ссылка недействительна или устарела");
+
+            stored.UsedAt = DateTime.UtcNow;
+
+            var user = await _context.Users.FindAsync(stored.UserId);
+            if (user == null)
+                throw new Exception("Пользователь не найден");
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.UpdatedAt = DateTime.UtcNow;
+
+            await RevokeAllUserTokensAsync(user.Id);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Пароль сброшен, все сессии отозваны: {Email}", user.Email);
+        }
+
+        private async Task SendConfirmationEmailAsync(User user)
+        {
+            var token = GenerateAuthTokenValue();
+            _context.AuthTokens.Add(new AuthToken
+            {
+                UserId = user.Id,
+                Purpose = "Confirm",
+                TokenHash = HashToken(token),
+                ExpiresAt = DateTime.UtcNow.AddDays(1)
+            });
+            await _context.SaveChangesAsync();
+
+            var link = $"{GetFrontendUrl()}/confirm-email?token={Uri.EscapeDataString(token)}";
+            await _emailService.SendAsync(
+                user.Email,
+                "Подтвердите email — ProjectMarket",
+                $"""
+                <p>Здравствуйте, {System.Net.WebUtility.HtmlEncode(user.FullName)}!</p>
+                <p>Подтвердите ваш email, чтобы завершить регистрацию.</p>
+                <p><a href="{link}">Подтвердить email</a> (действует 24 часа).</p>
+                <p>Если вы не регистрировались — проигнорируйте письмо.</p>
+                """);
+
+            _logger.LogInformation("Отправлена ссылка подтверждения email на {Email}", user.Email);
+        }
+
+        private async Task<AuthToken?> FindAuthTokenAsync(string token, string purpose)
+        {
+            var tokenHash = HashToken(token);
+            var stored = await _context.AuthTokens
+                .FirstOrDefaultAsync(t => t.TokenHash == tokenHash && t.Purpose == purpose);
+
+            if (stored == null)
+                return null;
+            if (stored.UsedAt != null || stored.ExpiresAt <= DateTime.UtcNow)
+                return null;
+
+            return stored;
+        }
+
+        private string GetFrontendUrl()
+        {
+            return _configuration["App:FrontendUrl"] ?? "http://localhost:5010";
+        }
+
+        private static string GenerateAuthTokenValue()
+        {
+            var bytes = RandomNumberGenerator.GetBytes(64);
+            return Convert.ToBase64String(bytes)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
         }
 
         private async Task<AuthResponse> IssueSessionAsync(User user, string ip)
@@ -240,7 +394,8 @@ namespace Auth.API.Services
                 Email = user.Email,
                 FullName = user.FullName,
                 Role = user.Role,
-                CreatedAt = user.CreatedAt
+                CreatedAt = user.CreatedAt,
+                EmailConfirmed = user.EmailConfirmed
             };
         }
     }

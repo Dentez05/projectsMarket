@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import { Send, ChevronDown, MessageCircle, Phone, Mail, CheckCircle, Clock, XCircle, ArrowLeft, Lock } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { supportApi } from '../api/support';
+import { startSupportHub, getSupportHub } from '../api/supportHub';
 import type { ApiSupportTicket } from '../api/types';
+import { useSeo } from '../utils/seo';
 
 const FAQ = [
   {
@@ -38,6 +40,7 @@ const fmtTime = (iso: string) =>
   new Date(iso).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 export default function Support() {
+  useSeo({ title: 'Поддержка', noindex: true });
   const { user, authReady } = useApp();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [subject, setSubject] = useState('');
@@ -78,11 +81,66 @@ export default function Support() {
       .finally(() => setTicketsLoaded(true));
   }, [user]);
 
-  // автообновление чата, пока он открыт
+  // ref для доступа к активному тикету из SignalR-хендлеров
+  const activeTicketRef = useRef<ApiSupportTicket | null>(null);
+  useEffect(() => { activeTicketRef.current = activeTicket; }, [activeTicket]);
+
+  // SignalR: мгновенные обновления; поллинг — фолбэк, пока хаб не подключён
+  const hubConnectedRef = useRef(false);
+  useEffect(() => {
+    if (!user) return;
+    let disposed = false;
+
+    const refreshActive = async (ticketId: number) => {
+      try {
+        let detail = await supportApi.getById(ticketId);
+        if (detail.unreadCount > 0) detail = await supportApi.markRead(ticketId);
+        if (disposed) return;
+        setActiveTicket(prev => (prev && prev.id === ticketId ? detail : prev));
+        updateList(detail);
+      } catch {}
+    };
+
+    const onMessage = async (payload: { ticketId: number }) => {
+      const activeId = activeTicketRef.current?.id;
+      if (activeId && payload.ticketId === activeId) {
+        await refreshActive(activeId);
+      } else {
+        supportApi.getMy().then(t => !disposed && setTickets(t)).catch(() => {});
+      }
+    };
+
+    const onTicket = () => {
+      supportApi.getMy().then(t => !disposed && setTickets(t)).catch(() => {});
+    };
+
+    (async () => {
+      const ok = await startSupportHub();
+      if (disposed) return;
+      hubConnectedRef.current = ok;
+      if (!ok) return;
+      const conn = getSupportHub();
+      conn.on('newMessage', onMessage);
+      conn.on('ticketUpdated', onTicket);
+      conn.on('ticketCreated', onTicket);
+    })();
+
+    return () => {
+      disposed = true;
+      const conn = getSupportHub();
+      conn.off('newMessage', onMessage);
+      conn.off('ticketUpdated', onTicket);
+      conn.off('ticketCreated', onTicket);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // автообновление чата (фолбэк при недоступном SignalR)
   useEffect(() => {
     if (!activeTicket) return;
     const ticketId = activeTicket.id;
     const timer = setInterval(async () => {
+      if (hubConnectedRef.current) return; // SignalR уже шлёт обновления
       try {
         let detail = await supportApi.getById(ticketId);
         if (detail.unreadCount > 0) detail = await supportApi.markRead(ticketId);

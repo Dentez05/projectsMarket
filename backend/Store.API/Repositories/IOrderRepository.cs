@@ -10,6 +10,7 @@ namespace Store.API.Repositories
         Task Update(Order order);
         Task<List<Order>> GetAllOrdersAsync();
         Task AddOrderItemAsync(OrderItem orderItem);
+        Task<PromoCode?> GetPromoCodeAsync(string code);
         Task<int> SaveChangesAsync();
     }
 }

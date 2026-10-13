@@ -57,6 +57,12 @@ namespace Store.API.Repositories
             await _context.OrderItems.AddAsync(orderItem);
         }
 
+        public async Task<PromoCode?> GetPromoCodeAsync(string code)
+        {
+            return await _context.PromoCodes
+                .FirstOrDefaultAsync(p => p.Code == code);
+        }
+
         public async Task<int> SaveChangesAsync()
         {
             return await _context.SaveChangesAsync();

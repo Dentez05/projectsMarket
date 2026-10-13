@@ -7,6 +7,7 @@ import SkeletonCard from '../components/ui/SkeletonCard';
 import ScrollReveal from '../components/ui/ScrollReveal';
 import Pagination from '../components/Pagination';
 import { useDebounce } from '../hooks/useDebounce';
+import { useSeo } from '../utils/seo';
 
 const PAGE_SIZE = 9;
 
@@ -24,6 +25,19 @@ export default function Projects() {
   const { projects, projectsLoaded } = useApp();
   const [searchParams] = useSearchParams();
   const initialCat = searchParams.get('category') || 'Все';
+
+  useSeo({
+    title: 'Каталог проектов',
+    description: 'Каталог готовых IT-проектов: e-commerce, CRM, дашборды и мобильные приложения. Фильтры по категории, цене и технологиям.',
+    keywords: 'купить IT проект, каталог проектов, e-commerce, CRM, дашборд',
+    path: '/projects',
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: 'Каталог проектов',
+      description: 'Каталог готовых IT-проектов',
+    },
+  });
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState(initialCat);
   const [priceMin, setPriceMin] = useState('');

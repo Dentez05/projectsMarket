@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../store/AppContext';
+import { useSeo } from '../utils/seo';
 
 export default function Login() {
+  useSeo({ title: 'Вход', noindex: true });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -53,7 +55,10 @@ export default function Login() {
                 className="w-full px-3.5 sm:px-4 py-2.5 bg-[#2a3244] border border-[#2e3548] rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]/50 transition-all" />
             </div>
             <div>
-              <label className="block text-xs sm:text-sm font-medium text-white/60 mb-1 sm:mb-1.5">Пароль</label>
+              <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+                <label className="block text-xs sm:text-sm font-medium text-white/60">Пароль</label>
+                <Link to="/forgot-password" className="text-xs text-white/30 hover:text-[#f97316] transition-colors">Забыли пароль?</Link>
+              </div>
               <div className="relative">
                 <input type={showPw ? 'text' : 'password'} value={password} onChange={e => { setPassword(e.target.value); setError(''); }} placeholder="Ваш пароль" required
                   className="w-full px-3.5 sm:px-4 py-2.5 bg-[#2a3244] border border-[#2e3548] rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]/50 transition-all pr-10" />

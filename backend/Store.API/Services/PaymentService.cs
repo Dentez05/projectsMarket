@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Store.API.Data;
+using Store.API.Email;
 using Store.API.Models.DTOs;
 using Store.API.Models.Entities;
 using System.Globalization;
@@ -15,13 +16,15 @@ namespace Store.API.Services
         private readonly IConfiguration _configuration;
         private readonly ILogger<PaymentService> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IEmailService _emailService;
 
-        public PaymentService(StoreDbContext context, IConfiguration configuration, ILogger<PaymentService> logger, IHttpClientFactory httpClientFactory)
+        public PaymentService(StoreDbContext context, IConfiguration configuration, ILogger<PaymentService> logger, IHttpClientFactory httpClientFactory, IEmailService emailService)
         {
             _context = context;
             _configuration = configuration;
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _emailService = emailService;
         }
 
         public async Task<string> CheckPaymentStatusAsync(string paymentId)
@@ -107,21 +110,9 @@ namespace Store.API.Services
             {
                 customer = new
                 {
-                    email = "customer@example.com"
+                    email = string.IsNullOrWhiteSpace(order.UserEmail) ? "customer@example.com" : order.UserEmail
                 },
-                items = order.OrderItems.Select(oi => new
-                {
-                    description = oi.Project?.Title ?? "Проект",
-                    quantity = "1.00",
-                    amount = new
-                    {
-                        value = oi.PriceAtTime.ToString("F2", CultureInfo.InvariantCulture),
-                        currency = "RUB"
-                    },
-                    vat_code = "2",
-                    payment_mode = "full_prepayment",
-                    payment_subject = "commodity"
-                }).ToList()
+                items = BuildReceiptItems(order)
             };
 
             var requestBody = new
@@ -232,7 +223,81 @@ namespace Store.API.Services
                 order.PaidAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("Заказ {OrderNumber} оплачен", order.OrderNumber);
+
+                await SendOrderPaidEmailAsync(order);
             }
+        }
+
+        private async Task SendOrderPaidEmailAsync(Order order)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(order.UserEmail))
+                    return;
+
+                var itemsHtml = string.Join("", await _context.OrderItems
+                    .Where(oi => oi.OrderId == order.Id)
+                    .Select(oi => $"<li>{oi.Project!.Title} — {oi.PriceAtTime:F0} ₽</li>")
+                    .ToListAsync());
+
+                await _emailService.SendAsync(
+                    order.UserEmail,
+                    $"Заказ {order.OrderNumber} оплачен — ProjectMarket",
+                    $"""
+                    <p>Здравствуйте, {System.Net.WebUtility.HtmlEncode(order.UserName)}!</p>
+                    <p>Оплату заказа <b>{order.OrderNumber}</b> получили. Спасибо за покупку!</p>
+                    <ul>{itemsHtml}</ul>
+                    <p><b>Итого: {order.TotalAmount:F0} ₽</b></p>
+                    <p>Скачать файлы можно в личном кабинете: заказы со статусом «Доставлен».</p>
+                    """);
+
+                _logger.LogInformation("Отправлено письмо об оплате заказа {OrderNumber} на {Email}",
+                    order.OrderNumber, order.UserEmail);
+            }
+            catch (Exception ex)
+            {
+                // Письмо не должно ломать обработку платежа
+                _logger.LogError(ex, "Не удалось отправить письмо об оплате заказа {OrderNumber}", order.OrderNumber);
+            }
+        }
+
+        private static object BuildReceiptItems(Order order)
+        {
+            var items = order.OrderItems.Select(oi => (object)new
+            {
+                description = oi.Project?.Title ?? "Проект",
+                quantity = "1.00",
+                amount = new
+                {
+                    value = oi.PriceAtTime.ToString("F2", CultureInfo.InvariantCulture),
+                    currency = "RUB"
+                },
+                vat_code = "2",
+                payment_mode = "full_prepayment",
+                payment_subject = "commodity"
+            }).ToList();
+
+            // Скидка — отдельная позиция с отрицательной суммой,
+            // чтобы итог чека совпал с суммой платежа (TotalAmount уже уменьшен)
+            if (order.DiscountAmount > 0)
+            {
+                items.Add(new
+                {
+                    description = $"Скидка по промокоду {order.PromoCode}",
+                    quantity = "1.00",
+                    amount = new
+                    {
+                        value = (-order.DiscountAmount).ToString("F2", CultureInfo.InvariantCulture),
+                        currency = "RUB"
+                    },
+                    vat_code = "2",
+                    payment_mode = "full_prepayment",
+                    payment_subject = "discount",
+                    payment_subject_specified = true
+                });
+            }
+
+            return items;
         }
 
         private class YooKassaPaymentResponse

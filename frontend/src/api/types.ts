@@ -5,6 +5,7 @@ export interface ApiUser {
   fullName: string;
   role: string;
   createdAt: string;
+  emailConfirmed: boolean;
 }
 
 export interface AuthResponse {
@@ -39,6 +40,8 @@ export interface ApiProject {
   popular: boolean;
   previewImages: string[];
   soldCount?: number;
+  averageRating?: number;
+  reviewsCount?: number;
 }
 
 export interface CreateProjectRequest {
@@ -86,6 +89,8 @@ export interface ApiOrder {
   paymentId: string | null;
   userName: string;
   userEmail: string;
+  promoCode?: string | null;
+  discountAmount?: number;
   items: ApiOrderItem[];
 }
 
@@ -119,4 +124,29 @@ export interface ApiSupportTicket {
   lastMessageAt: string;
   unreadCount: number;
   messages?: ApiSupportMessage[];
+}
+
+// ─── Reviews ────────────────────────────────────────────
+export interface ApiReview {
+  id: number;
+  projectId: number;
+  userId: number;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+// ─── Promo codes ────────────────────────────────────────
+export interface ApiPromoCode {
+  id: number;
+  code: string;
+  type: 'Percent' | 'Fixed';
+  value: number;
+  minOrderAmount: number | null;
+  maxUses: number | null;
+  usedCount: number;
+  expiresAt: string | null;
+  isActive: boolean;
+  createdAt: string;
 }

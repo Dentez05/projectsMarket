@@ -38,5 +38,11 @@ namespace Store.API.Models.Entities
 
         [MaxLength(256)]
         public string UserEmail { get; set; } = string.Empty;
+
+        [MaxLength(50)]
+        public string? PromoCode { get; set; }
+
+        [Column(TypeName = "decimal(10,2)")]
+        public decimal DiscountAmount { get; set; }
     }
 }

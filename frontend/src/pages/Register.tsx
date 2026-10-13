@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import { useApp } from '../store/AppContext';
+import { useSeo } from '../utils/seo';
 
 function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
   if (!pw) return { score: 0, label: '', color: '' };
@@ -19,6 +20,7 @@ function getPasswordStrength(pw: string): { score: number; label: string; color:
 }
 
 export default function Register() {
+  useSeo({ title: 'Регистрация', noindex: true });
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

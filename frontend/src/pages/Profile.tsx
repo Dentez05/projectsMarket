@@ -1,10 +1,12 @@
 import { useNavigate, Link } from 'react-router-dom';
-import { LogOut, Download, Package, User, Mail, CreditCard } from 'lucide-react';
+import { LogOut, Download, Package, User, Mail, CreditCard, MailWarning, CheckCircle2, Heart } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { paymentsApi } from '../api/payments';
+import { authApi } from '../api/auth';
 import { api, fetchWithAuth } from '../api/client';
 import { useState, useEffect } from 'react';
 import Pagination from '../components/Pagination';
+import { useSeo } from '../utils/seo';
 
 const PAGE_SIZE = 10;
 
@@ -15,10 +17,12 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 };
 
 export default function Profile() {
-  const { user, orders, logout, refreshOrders, authReady } = useApp();
+  useSeo({ title: 'Личный кабинет', noindex: true });
+  const { user, orders, logout, refreshOrders, authReady, favoriteIds, projects } = useApp();
   const navigate = useNavigate();
   const [payingId, setPayingId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
+  const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent'>('idle');
 
   useEffect(() => {
     if (!user || orders.length === 0) return;
@@ -109,8 +113,37 @@ export default function Profile() {
     URL.revokeObjectURL(url);
   };
 
+  const handleResendConfirm = async () => {
+    if (!user || resendState === 'sending' || resendState === 'sent') return;
+    setResendState('sending');
+    try {
+      await authApi.resendConfirmation(user.email);
+      setResendState('sent');
+    } catch {
+      setResendState('idle');
+    }
+  };
+
   return (
     <div className="pt-14 sm:pt-20 lg:pt-24">
+      {user.emailConfirmed === false && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+            <MailWarning size={16} className="text-amber-400 flex-shrink-0" />
+            <p className="text-xs sm:text-sm text-amber-200/80 flex-1">
+              Email не подтверждён. Проверьте почту — мы отправили письмо со ссылкой для подтверждения.
+            </p>
+            {resendState === 'sent' ? (
+              <span className="flex items-center gap-1.5 text-xs text-green-400"><CheckCircle2 size={13} /> Письмо отправлено</span>
+            ) : (
+              <button onClick={handleResendConfirm} disabled={resendState === 'sending'}
+                className="text-xs font-medium text-amber-400 hover:text-amber-300 transition-colors disabled:opacity-50">
+                {resendState === 'sending' ? 'Отправляем…' : 'Отправить повторно'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
       <div className="section-dark py-6 sm:py-8 lg:py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">Личный кабинет</h1>
@@ -191,6 +224,34 @@ export default function Profile() {
                 </div>
                 <Pagination page={safePage} totalPages={totalPages} onPageChange={setPage} />
               </>
+            )}
+
+            <h3 className="text-base sm:text-lg font-semibold text-white mt-10 mb-4 sm:mb-5 flex items-center gap-2">
+              <Heart size={16} className="text-[#f97316]" /> Избранное
+            </h3>
+            {favoriteIds.length === 0 ? (
+              <div className="bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] p-6 sm:p-8 text-center">
+                <p className="text-white/40 text-sm">В избранном пока пусто</p>
+                <p className="text-white/25 text-xs mt-1">Нажимайте сердечко на карточках проектов</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5 sm:space-y-3">
+                {favoriteIds.map(id => {
+                  const p = projects.find(pr => pr.id === id);
+                  if (!p) return null;
+                  return (
+                    <Link key={id} to={`/projects/${id}`}
+                      className="flex items-center gap-3 sm:gap-4 bg-[#232a3b] rounded-xl sm:rounded-2xl border border-[#2e3548] p-3 sm:p-4 hover:border-[#f97316]/30 transition-colors">
+                      <img src={p.images?.[0] || ''} alt={p.title} className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-white truncate">{p.title}</p>
+                        <p className="text-xs text-white/40 truncate">{p.categoryName}</p>
+                      </div>
+                      <span className="text-sm font-bold text-white whitespace-nowrap">{p.price.toLocaleString('ru-RU')} ₽</span>
+                    </Link>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>

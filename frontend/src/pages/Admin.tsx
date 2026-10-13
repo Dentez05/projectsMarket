@@ -1,15 +1,19 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle, ImagePlus, Lock, Eye, EyeOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle, ImagePlus, Lock, Eye, EyeOff, Tag, BarChart3 } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import { categoriesApi } from '../api/categories';
 import { ordersApi } from '../api/orders';
 import { supportApi } from '../api/support';
+import { startSupportHub, getSupportHub } from '../api/supportHub';
 import { uploadApi, type ProjectFileResponse } from '../api/upload';
 import type { ApiProject, ApiCategory, ApiOrder, ApiSupportTicket } from '../api/types';
 import Pagination from '../components/Pagination';
+import PromoCodesTab from '../components/admin/PromoCodesTab';
+import StatsTab from '../components/admin/StatsTab';
 import { formatFileSize } from '../utils/preview';
+import { useSeo } from '../utils/seo';
 
 const PAGE_SIZE = 10;
 
@@ -24,7 +28,7 @@ const ticketStatusInfo = (status: string) =>
     : { label: 'Закрыто', color: 'text-white/40 bg-white/5', icon: <XCircle size={12} /> };
 
 type View = 'list' | 'create' | 'edit';
-type Tab = 'projects' | 'orders' | 'support';
+type Tab = 'projects' | 'orders' | 'support' | 'promos' | 'stats';
 
 const STATUS_LABELS: Record<string, string> = {
   Pending: 'Ожидает оплаты',
@@ -39,6 +43,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export default function Admin() {
+  useSeo({ title: 'Админ-панель', noindex: true });
   const { projects, projectsLoaded, user, authReady } = useApp();
   const navigate = useNavigate();
   const [view, setView] = useState<View>('list');
@@ -85,11 +90,61 @@ export default function Admin() {
     }
   }, [tab]);
 
-  // автообновление открытого чата
+  // SignalR: админ-подписка на все тикеты; поллинг — фолбэк
+  const hubConnectedRef = useRef(false);
+  const activeTicketRef = useRef<ApiSupportTicket | null>(null);
+  useEffect(() => { activeTicketRef.current = activeTicket; }, [activeTicket]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'admin') return;
+    let disposed = false;
+
+    const refreshActive = async (ticketId: number) => {
+      try {
+        let detail = await supportApi.getById(ticketId);
+        if (detail.unreadCount > 0) detail = await supportApi.markRead(ticketId);
+        if (disposed) return;
+        setActiveTicket(prev => (prev && prev.id === ticketId ? detail : prev));
+        setTickets(prev => prev.map(t => t.id === ticketId ? { ...detail, messages: undefined } : t));
+      } catch {}
+    };
+
+    const onEvent = async (payload: { ticketId: number }) => {
+      const activeId = activeTicketRef.current?.id;
+      if (activeId && payload.ticketId === activeId) {
+        await refreshActive(activeId);
+      } else {
+        supportApi.getAll().then(t => !disposed && setTickets(t)).catch(() => {});
+      }
+    };
+
+    (async () => {
+      const ok = await startSupportHub();
+      if (disposed) return;
+      hubConnectedRef.current = ok;
+      if (!ok) return;
+      const conn = getSupportHub();
+      conn.on('newMessage', onEvent);
+      conn.on('ticketUpdated', onEvent);
+      conn.on('ticketCreated', onEvent);
+    })();
+
+    return () => {
+      disposed = true;
+      const conn = getSupportHub();
+      conn.off('newMessage', onEvent);
+      conn.off('ticketUpdated', onEvent);
+      conn.off('ticketCreated', onEvent);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // автообновление открытого чата (фолбэк при недоступном SignalR)
   useEffect(() => {
     if (tab !== 'support' || !activeTicket) return;
     const ticketId = activeTicket.id;
     const timer = setInterval(async () => {
+      if (hubConnectedRef.current) return;
       try {
         let detail = await supportApi.getById(ticketId);
         if (detail.unreadCount > 0) detail = await supportApi.markRead(ticketId);
@@ -260,6 +315,14 @@ export default function Admin() {
                   {tickets.filter(t => t.status === 'Open').length}
                 </span>
               )}
+            </button>
+            <button onClick={() => setTab('promos')}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${tab === 'promos' ? 'bg-[#f97316] text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
+              <Tag size={15} /> Промокоды
+            </button>
+            <button onClick={() => setTab('stats')}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${tab === 'stats' ? 'bg-[#f97316] text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
+              <BarChart3 size={15} /> Статистика
             </button>
           </div>
         </div>
@@ -599,6 +662,9 @@ export default function Admin() {
             </div>
           )
         )}
+
+        {tab === 'promos' && <PromoCodesTab />}
+        {tab === 'stats' && <StatsTab />}
       </div>
     </div>
   );

@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
+import { useSeo } from '../utils/seo';
 
 export default function NotFound() {
+  useSeo({ title: '404 — страница не найдена', noindex: true });
   return (
     <div className="section-dark py-16 sm:py-24 lg:py-32">
       <div className="max-w-lg mx-auto px-4 text-center relative z-10">

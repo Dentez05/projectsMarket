@@ -85,6 +85,12 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+// Email: log (заглушка в лог, по умолчанию) | smtp (MailKit, Smtp__* в .env)
+if (string.Equals(builder.Configuration["Email:Provider"], "smtp", StringComparison.OrdinalIgnoreCase))
+    builder.Services.AddScoped<Auth.API.Email.IEmailService, Auth.API.Email.SmtpEmailService>();
+else
+    builder.Services.AddScoped<Auth.API.Email.IEmailService, Auth.API.Email.LoggingEmailService>();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

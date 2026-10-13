@@ -53,6 +53,28 @@ namespace Store.API.Repositories
                 .ToDictionaryAsync(g => g.Key, g => g.Count());
         }
 
+        public async Task<int> GetSoldCountAsync(int projectId)
+        {
+            return await _context.OrderItems.CountAsync(oi => oi.ProjectId == projectId);
+        }
+
+        public async Task<Dictionary<int, (double Average, int Count)>> GetRatingSummariesAsync()
+        {
+            var grouped = await _context.Reviews
+                .GroupBy(r => r.ProjectId)
+                .Select(g => new
+                {
+                    ProjectId = g.Key,
+                    Average = g.Average(r => r.Rating),
+                    Count = g.Count()
+                })
+                .ToListAsync();
+
+            return grouped.ToDictionary(
+                g => g.ProjectId,
+                g => (g.Average, g.Count));
+        }
+
         public async Task AddAsync(Project project)
         {
             await _context.Projects.AddAsync(project);
