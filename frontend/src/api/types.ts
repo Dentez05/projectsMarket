@@ -1,4 +1,3 @@
-// ─── User ───────────────────────────────────────────────
 export interface ApiUser {
   id: number;
   email: string;
@@ -13,14 +12,12 @@ export interface AuthResponse {
   user: ApiUser;
 }
 
-// ─── Category ───────────────────────────────────────────
 export interface ApiCategory {
   id: number;
   name: string;
   description: string;
 }
 
-// ─── Project ────────────────────────────────────────────
 export interface ApiProject {
   id: number;
   title: string;
@@ -58,7 +55,6 @@ export interface CreateProjectRequest {
   popular: boolean;
 }
 
-// ─── Cart ───────────────────────────────────────────────
 export interface ApiCartItem {
   id: number;
   projectId: number;
@@ -73,7 +69,6 @@ export interface ApiCartResponse {
   count: number;
 }
 
-// ─── Order ──────────────────────────────────────────────
 export interface ApiOrderItem {
   projectId: number;
   title: string;
@@ -94,14 +89,6 @@ export interface ApiOrder {
   items: ApiOrderItem[];
 }
 
-// ─── Payment ────────────────────────────────────────────
-export interface ApiPaymentResponse {
-  paymentId: string;
-  confirmationUrl: string;
-  status: string;
-}
-
-// ─── Support ────────────────────────────────────────────
 export interface ApiSupportMessage {
   id: number;
   ticketId: number;
@@ -126,7 +113,6 @@ export interface ApiSupportTicket {
   messages?: ApiSupportMessage[];
 }
 
-// ─── Reviews ────────────────────────────────────────────
 export interface ApiReview {
   id: number;
   projectId: number;
@@ -137,7 +123,6 @@ export interface ApiReview {
   createdAt: string;
 }
 
-// ─── Promo codes ────────────────────────────────────────
 export interface ApiPromoCode {
   id: number;
   code: string;
@@ -149,4 +134,14 @@ export interface ApiPromoCode {
   expiresAt: string | null;
   isActive: boolean;
   createdAt: string;
+}
+
+export interface PromoValidationResponse {
+  isValid: boolean;
+  error?: string | null;
+  code?: string | null;
+  type?: string | null;
+  value: number;
+  discount: number;
+  total: number;
 }

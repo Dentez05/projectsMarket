@@ -249,7 +249,6 @@ namespace Store.API.Controllers
             return Ok(detail);
         }
 
-        // Рассылка события через SignalR: владельцу тикета + всем админам
         private async Task BroadcastAsync(SupportTicket ticket, string evt)
         {
             try

@@ -1,9 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Trash2, ShoppingBag, Send, MessageCircle, ArrowRight, Tag, Check } from 'lucide-react';
+import { Trash2, ShoppingBag, Send, MessageCircle, ArrowRight, Tag, Check, Eraser } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { ordersApi } from '../api/orders';
 import { paymentsApi } from '../api/payments';
+import { cartApi } from '../api/cart';
+import { promoCodesApi } from '../api/promoCodes';
 import { useToast } from '../hooks/useToast';
 import ToastContainer from '../components/ui/Toast';
 import { useSeo } from '../utils/seo';
@@ -18,12 +20,43 @@ export default function Cart() {
   const total = cart.reduce((sum, i) => sum + i.price, 0);
   const [promoInput, setPromoInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<string | null>(null);
+  const [promoInfo, setPromoInfo] = useState<{ discount: number; total: number; subtotal: number } | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
   const [promoError, setPromoError] = useState('');
 
-  // Клиентский предпросмотр скидки; сервер пересчитает и валидирует заново
-  const previewDiscount = appliedPromo
-    ? null // точную сумму сервер посчитает при оформлении; показываем только факт применения
-    : 0;
+  const applyPromo = async (code: string, subtotal: number) => {
+    setPromoLoading(true);
+    setPromoError('');
+    try {
+      const res = await promoCodesApi.validate(code, subtotal);
+      if (res.isValid) {
+        setAppliedPromo(code);
+        setPromoInfo({ discount: res.discount, total: res.total, subtotal });
+      } else {
+        setAppliedPromo(null);
+        setPromoInfo(null);
+        setPromoError(res.error || 'Промокод не найден');
+      }
+    } catch {
+      setAppliedPromo(null);
+      setPromoInfo(null);
+      setPromoError('Не удалось проверить промокод');
+    }
+    setPromoLoading(false);
+  };
+
+  const clearPromo = () => {
+    setAppliedPromo(null);
+    setPromoInfo(null);
+    setPromoInput('');
+    setPromoError('');
+  };
+
+  useEffect(() => {
+    if (!appliedPromo || !promoInfo || promoInfo.subtotal === total) return;
+    applyPromo(appliedPromo, total);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [total]);
 
   const handleCheckout = async () => {
     if (!user) { navigate('/login'); return; }
@@ -57,6 +90,16 @@ export default function Cart() {
     addToast('Проект удалён из корзины', 'info');
   };
 
+  const handleClear = async () => {
+    try {
+      await cartApi.clear();
+      await refreshCart();
+      addToast('Корзина очищена', 'info');
+    } catch {
+      addToast('Не удалось очистить корзину', 'error');
+    }
+  };
+
   if (cart.length === 0) {
     return (
       <div className="pt-14 sm:pt-20 lg:pt-24">
@@ -81,7 +124,15 @@ export default function Cart() {
     <div className="pt-14 sm:pt-20 lg:pt-24">
       <div className="section-dark py-6 sm:py-8 lg:py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">Корзина &middot; {cart.length} {cart.length === 1 ? 'проект' : cart.length < 5 ? 'проекта' : 'проектов'}</h1>
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">Корзина &middot; {cart.length} {cart.length === 1 ? 'проект' : cart.length < 5 ? 'проекта' : 'проектов'}</h1>
+            <button
+              onClick={handleClear}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium text-white/50 hover:text-red-400 hover:bg-red-500/10 border border-[#2e3548] hover:border-red-500/30 transition-colors"
+            >
+              <Eraser size={14} /> Очистить
+            </button>
+          </div>
         </div>
       </div>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10">
@@ -131,7 +182,7 @@ export default function Cart() {
                   />
                   {appliedPromo ? (
                     <button
-                      onClick={() => { setAppliedPromo(null); setPromoInput(''); setPromoError(''); }}
+                      onClick={clearPromo}
                       className="flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap"
                       title="Убрать промокод"
                     >
@@ -141,22 +192,39 @@ export default function Cart() {
                     <button
                       onClick={() => {
                         const code = promoInput.trim();
-                        if (!code) return;
-                        setAppliedPromo(code);
-                        setPromoError('');
+                        if (!code || promoLoading) return;
+                        applyPromo(code, total);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors whitespace-nowrap"
+                      disabled={promoLoading}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 transition-colors whitespace-nowrap disabled:opacity-60"
                     >
-                      <Tag size={13} /> Применить
+                      {promoLoading
+                        ? <span className="w-3.5 h-3.5 border-2 border-[#f97316]/30 border-t-[#f97316] rounded-full animate-spin" />
+                        : <Tag size={13} />}
+                      Применить
                     </button>
                   )}
                 </div>
                 {promoError && <p className="text-[11px] text-red-400 mt-1.5">{promoError}</p>}
-                <p className="text-[10px] text-white/25 mt-1.5">Скидка проверяется сервером при оформлении</p>
               </div>
-              <div className="border-t border-[#2e3548] pt-3.5 sm:pt-4 flex justify-between items-center mb-4 sm:mb-5">
-                <span className="font-semibold text-white text-sm sm:text-base">Итого</span>
-                <span className="text-lg sm:text-xl font-bold gradient-text">{total.toLocaleString('ru-RU')} &#8381;</span>
+              <div className="border-t border-[#2e3548] pt-3.5 sm:pt-4 mb-4 sm:mb-5">
+                {promoInfo && promoInfo.discount > 0 && (
+                  <div className="flex justify-between text-xs text-emerald-400 mb-1.5">
+                    <span>Скидка по промокоду {appliedPromo}</span>
+                    <span>−{promoInfo.discount.toLocaleString('ru-RU')} &#8381;</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="font-semibold text-white text-sm sm:text-base">Итого</span>
+                  {promoInfo && promoInfo.discount > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-white/35 line-through">{promoInfo.subtotal.toLocaleString('ru-RU')} &#8381;</span>
+                      <span className="text-lg sm:text-xl font-bold gradient-text">{promoInfo.total.toLocaleString('ru-RU')} &#8381;</span>
+                    </div>
+                  ) : (
+                    <span className="text-lg sm:text-xl font-bold gradient-text">{total.toLocaleString('ru-RU')} &#8381;</span>
+                  )}
+                </div>
               </div>
               <button onClick={handleCheckout} disabled={loading} className="btn-primary w-full py-2.5 sm:py-3 flex items-center justify-center gap-2 rounded-xl text-sm sm:text-base">
                 {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}

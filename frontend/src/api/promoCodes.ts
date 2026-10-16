@@ -1,8 +1,11 @@
 import { api } from './client';
-import type { ApiPromoCode } from './types';
+import type { ApiPromoCode, PromoValidationResponse } from './types';
 
 export const promoCodesApi = {
   getAll: () => api.get<ApiPromoCode[]>('/PromoCodes'),
+
+  validate: (code: string, subtotal: number) =>
+    api.post<PromoValidationResponse>('/PromoCodes/validate', { code, subtotal }),
 
   create: (data: { code: string; type: 'Percent' | 'Fixed'; value: number; minOrderAmount?: number; maxUses?: number; expiresAt?: string }) =>
     api.post<ApiPromoCode>('/PromoCodes', data),

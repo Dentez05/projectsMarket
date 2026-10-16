@@ -36,10 +36,3 @@ export async function startSupportHub(): Promise<boolean> {
     return false;
   }
 }
-
-export function stopSupportHub(): void {
-  if (connection) {
-    connection.stop().catch(() => {});
-    connection = null;
-  }
-}

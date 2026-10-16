@@ -58,7 +58,6 @@ export default function StatsTab() {
 
   return (
     <div className="space-y-6">
-      {/* KPI-карточки */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {cards.map(c => (
           <div key={c.label} className="bg-[#232a3b] border border-[#2e3548] rounded-xl p-4">
@@ -69,7 +68,6 @@ export default function StatsTab() {
         ))}
       </div>
 
-      {/* График продаж (CSS bars) */}
       <div className="bg-[#232a3b] border border-[#2e3548] rounded-xl p-5">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h3 className="text-white font-semibold">Динамика продаж</h3>
@@ -123,7 +121,6 @@ export default function StatsTab() {
         </div>
       </div>
 
-      {/* Топ проектов */}
       <div className="bg-[#232a3b] border border-[#2e3548] rounded-xl overflow-hidden">
         <div className="px-5 py-3 bg-[#2a3244] border-b border-[#2e3548]">
           <h3 className="text-white font-semibold text-sm">Топ проектов по выручке</h3>

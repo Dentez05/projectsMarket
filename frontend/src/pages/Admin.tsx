@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle, ImagePlus, Lock, Eye, EyeOff, Tag, BarChart3 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, ArrowLeft, Upload, FileArchive, Package, LifeBuoy, Send, CheckCircle, Clock, XCircle, ImagePlus, Lock, Eye, EyeOff, Tag, BarChart3, FolderTree } from 'lucide-react';
 import { useApp } from '../store/AppContext';
 import { projectsApi } from '../api/projects';
 import { categoriesApi } from '../api/categories';
@@ -12,6 +12,7 @@ import type { ApiProject, ApiCategory, ApiOrder, ApiSupportTicket } from '../api
 import Pagination from '../components/Pagination';
 import PromoCodesTab from '../components/admin/PromoCodesTab';
 import StatsTab from '../components/admin/StatsTab';
+import CategoriesModal from '../components/admin/CategoriesModal';
 import { formatFileSize } from '../utils/preview';
 import { useSeo } from '../utils/seo';
 
@@ -44,10 +45,11 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function Admin() {
   useSeo({ title: 'Админ-панель', noindex: true });
-  const { projects, projectsLoaded, user, authReady } = useApp();
+  const { projects, user, authReady, refreshProjects } = useApp();
   const navigate = useNavigate();
   const [view, setView] = useState<View>('list');
   const [tab, setTab] = useState<Tab>('projects');
+  const [showCategories, setShowCategories] = useState(false);
   const [filterCategory, setFilterCategory] = useState('Все');
   const [projectList, setProjectList] = useState<ApiProject[]>([]);
   const [editingProject, setEditingProject] = useState<ApiProject | null>(null);
@@ -330,16 +332,21 @@ export default function Admin() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-8">
         {tab === 'projects' && (
           <>
-        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 mb-5 sm:mb-6 scrollbar-hide">
+        <div className="flex items-center gap-2 mb-5 sm:mb-6">
+          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-2 sm:flex-wrap sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide flex-1 min-w-0">
           <button onClick={() => setFilterCategory('Все')}
             className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterCategory === 'Все' ? 'bg-[#f97316] text-white' : 'bg-[#232a3b] border border-[#2e3548] text-white/60 hover:border-[#f97316]/30'}`}>Все</button>
           {allCategories.filter(c => c !== 'Все').map(cat => (
             <button key={cat} onClick={() => setFilterCategory(cat)}
               className={`shrink-0 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors ${filterCategory === cat ? 'bg-[#f97316] text-white' : 'bg-[#232a3b] border border-[#2e3548] text-white/60 hover:border-[#f97316]/30'}`}>{cat}</button>
           ))}
+          </div>
+          <button onClick={() => setShowCategories(true)}
+            className="shrink-0 flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium text-white/60 border border-[#2e3548] hover:border-[#f97316]/30 hover:text-[#f97316] transition-colors">
+            <FolderTree size={13} /> Категории
+          </button>
         </div>
 
-        {/* Desktop table */}
         <div className="hidden sm:block bg-[#232a3b] rounded-xl border border-[#2e3548] overflow-hidden">
           <table className="w-full">
             <thead className="bg-[#2a3244] border-b border-[#2e3548]">
@@ -396,7 +403,6 @@ export default function Admin() {
           </table>
         </div>
 
-        {/* Mobile cards */}
         <div className="sm:hidden space-y-2.5">
           {visibleProjects.map(p => (
             <div key={p.id} className="bg-[#232a3b] rounded-xl border border-[#2e3548] p-3.5 flex items-center gap-3">
@@ -526,7 +532,6 @@ export default function Admin() {
 
         {tab === 'support' && !ticketsLoading && activeTicket && (
           <div className="bg-[#232a3b] rounded-xl border border-[#2e3548] overflow-hidden max-w-3xl">
-            {/* Chat header */}
             <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-[#2e3548] bg-[#2a3244]">
               <div className="flex items-center gap-3 min-w-0">
                 <button
@@ -558,7 +563,6 @@ export default function Admin() {
               )}
             </div>
 
-            {/* Messages */}
             <div className="px-3 sm:px-4 py-4 space-y-3 h-[420px] overflow-y-auto">
               {activeTicket.messages?.map(m => {
                 const mine = m.senderRole === 'Admin';
@@ -581,7 +585,6 @@ export default function Admin() {
               <div ref={chatEndRef} />
             </div>
 
-            {/* Composer */}
             <div className="border-t border-[#2e3548] p-3 sm:p-4">
               {activeTicket.status === 'Closed' ? (
                 <p className="text-xs text-white/40 flex items-center gap-2 py-1">
@@ -666,6 +669,17 @@ export default function Admin() {
         {tab === 'promos' && <PromoCodesTab />}
         {tab === 'stats' && <StatsTab />}
       </div>
+
+      {showCategories && (
+        <CategoriesModal
+          categories={categories}
+          onClose={() => setShowCategories(false)}
+          onChanged={() => {
+            categoriesApi.getAll().then(setCategories).catch(() => {});
+            refreshProjects();
+          }}
+        />
+      )}
     </div>
   );
 }

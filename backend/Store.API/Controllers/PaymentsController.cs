@@ -35,7 +35,8 @@ namespace Store.API.Controllers
             if (order.Status != "Pending")
                 return BadRequest("Заказ уже оплачен или отменён");
 
-            var returnUrl = _configuration["YooKassa:ReturnUrl"] ?? "http://localhost:5010/profile";
+            var returnUrl = _configuration["YooKassa:ReturnUrl"] ?? "http://localhost:5010/payment-success";
+            returnUrl += $"{(returnUrl.Contains('?') ? '&' : '?')}orderId={id}";
             var payment = await _paymentService.CreatePaymentAsync(id, returnUrl);
 
             return Ok(new

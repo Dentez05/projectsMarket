@@ -10,8 +10,6 @@ export const authApi = {
 
   getProfile: () => api.get<AuthResponse['user']>('/Auth/profile'),
 
-  refresh: () => api.post<AuthResponse>('/Auth/refresh'),
-
   logout: () => api.post<{ ok: boolean }>('/Auth/logout'),
 
   confirmEmail: (token: string) =>

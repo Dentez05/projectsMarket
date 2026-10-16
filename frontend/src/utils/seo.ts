@@ -23,13 +23,9 @@ export interface SeoOptions {
   title: string;
   description?: string;
   keywords?: string;
-  /** og:image — абсолютный или относительный URL */
   image?: string;
-  /** canonical path, например /projects/1 */
   path?: string;
-  /** noindex для служебных страниц */
   noindex?: boolean;
-  /** JSON-LD объект (или массив) — вставляется в <script type="application/ld+json"> */
   jsonLd?: unknown;
 }
 
@@ -37,8 +33,7 @@ const SITE_URL =
   (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/$/, '') ||
   (typeof window !== 'undefined' ? window.location.origin : '');
 
-// Простой SEO-хук: title, description, keywords, OG/Twitter, canonical, robots, JSON-LD
-// (react-helmet-async несовместим с React 19)
+// Хук SEO-метатегов вместо react-helmet (несовместим с React 19)
 export function useSeo(options: SeoOptions): void {
   useEffect(() => {
     const prevTitle = document.title;
@@ -65,7 +60,6 @@ export function useSeo(options: SeoOptions): void {
       setMetaContent('meta[name="twitter:image"]', abs);
     }
 
-    // canonical
     const canonicalHref = options.path
       ? `${SITE_URL}${options.path.startsWith('/') ? '' : '/'}${options.path}`
       : undefined;
@@ -80,7 +74,6 @@ export function useSeo(options: SeoOptions): void {
       setMetaContent('meta[property="og:url"]', canonicalHref);
     }
 
-    // robots
     let robots = document.querySelector<HTMLMetaElement>('meta[name="robots"]');
     if (options.noindex) {
       if (!robots) {
@@ -93,7 +86,6 @@ export function useSeo(options: SeoOptions): void {
       robots.remove();
     }
 
-    // JSON-LD
     const scripts = Array.from(document.querySelectorAll('script[data-seo-jsonld]'));
     scripts.forEach(s => s.remove());
     if (options.jsonLd) {

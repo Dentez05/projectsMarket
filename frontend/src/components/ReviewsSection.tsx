@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, MessageSquare, Send } from 'lucide-react';
+import { Star, MessageSquare, Send, Pencil, Trash2, X } from 'lucide-react';
 import { useApp, type Order } from '../store/AppContext';
 import { reviewsApi } from '../api/reviews';
 import type { ApiReview } from '../api/types';
@@ -29,9 +29,14 @@ export default function ReviewsSection({ projectId, orders }: Props) {
   const [comment, setComment] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [editing, setEditing] = useState<ApiReview | null>(null);
+  const [editRating, setEditRating] = useState(5);
+  const [editComment, setEditComment] = useState('');
+  const [editError, setEditError] = useState('');
 
   useEffect(() => {
     reviewsApi.getByProject(projectId).then(setReviews).catch(() => setReviews([]));
+    setEditing(null);
   }, [projectId]);
 
   const myReview = user ? reviews.find(r => r.userId === user.id) : undefined;
@@ -54,6 +59,42 @@ export default function ReviewsSection({ projectId, orders }: Props) {
       setError(msg || 'Не удалось отправить отзыв');
     }
     setSending(false);
+  };
+
+  const startEdit = (r: ApiReview) => {
+    setEditing(r);
+    setEditRating(r.rating);
+    setEditComment(r.comment || '');
+    setEditError('');
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    setEditError('');
+    setSending(true);
+    try {
+      await reviewsApi.update(editing.id, { rating: editRating, comment: editComment });
+      setReviews(prev => prev.map(r => r.id === editing.id
+        ? { ...r, rating: editRating, comment: editComment.trim() }
+        : r));
+      setEditing(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : '';
+      setEditError(msg || 'Не удалось изменить отзыв');
+    }
+    setSending(false);
+  };
+
+  const handleDelete = async (r: ApiReview) => {
+    if (!window.confirm('Удалить ваш отзыв?')) return;
+    try {
+      await reviewsApi.delete(r.id);
+      setReviews(prev => prev.filter(x => x.id !== r.id));
+      if (editing?.id === r.id) setEditing(null);
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : 'Не удалось удалить отзыв');
+    }
   };
 
   const avg = reviews.length > 0
@@ -99,7 +140,29 @@ export default function ReviewsSection({ projectId, orders }: Props) {
       )}
 
       <div className="space-y-3">
-        {reviews.map(r => (
+        {reviews.map(r => editing?.id === r.id ? (
+          <form key={r.id} onSubmit={handleUpdate} className="p-4 bg-[#232a3b] border border-[#f97316]/30 rounded-xl sm:rounded-2xl">
+            <p className="text-sm font-semibold text-white mb-3">Редактировать отзыв</p>
+            <div className="flex items-center gap-3 mb-3">
+              <span className="text-xs text-white/50">Оценка:</span>
+              <Stars value={editRating} size={18} onChange={setEditRating} />
+            </div>
+            <textarea value={editComment} onChange={e => setEditComment(e.target.value)}
+              placeholder="Расскажите о проекте (необязательно)" rows={3} maxLength={2000}
+              className="w-full px-3.5 py-2.5 bg-[#2a3244] border border-[#2e3548] rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#f97316]/30 focus:border-[#f97316]/50 transition-all resize-none mb-3" />
+            {editError && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-3">{editError}</p>}
+            <div className="flex gap-2">
+              <button type="submit" disabled={sending}
+                className="btn-primary inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold disabled:opacity-50">
+                <Send size={14} /> {sending ? 'Сохраняем…' : 'Сохранить'}
+              </button>
+              <button type="button" onClick={() => setEditing(null)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white/50 hover:bg-white/5 transition-colors">
+                <X size={14} /> Отмена
+              </button>
+            </div>
+          </form>
+        ) : (
           <div key={r.id} className="p-4 bg-[#232a3b] border border-[#2e3548] rounded-xl sm:rounded-2xl">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#f97316] to-[#ea580c] flex items-center justify-center text-white text-xs font-bold">
@@ -110,6 +173,18 @@ export default function ReviewsSection({ projectId, orders }: Props) {
                 <p className="text-[11px] text-white/30">{new Date(r.createdAt).toLocaleDateString('ru-RU')}</p>
               </div>
               <Stars value={r.rating} />
+              {user && r.userId === user.id && (
+                <div className="flex items-center gap-1 ml-1">
+                  <button onClick={() => startEdit(r)} title="Изменить"
+                    className="p-1.5 text-white/30 hover:text-[#f97316] hover:bg-[#f97316]/10 rounded-lg transition-colors">
+                    <Pencil size={14} />
+                  </button>
+                  <button onClick={() => handleDelete(r)} title="Удалить"
+                    className="p-1.5 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              )}
             </div>
             {r.comment && <p className="text-sm text-white/60 leading-relaxed whitespace-pre-line">{r.comment}</p>}
           </div>

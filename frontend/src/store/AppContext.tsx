@@ -47,7 +47,7 @@ interface AppState {
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => void;
-  checkout: () => Promise<string | null>;
+  refreshProjects: () => Promise<void>;
   refreshOrders: () => Promise<void>;
   refreshCart: () => Promise<void>;
   favoriteIds: number[];
@@ -86,6 +86,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => setProjectsLoaded(true));
   }, []);
 
+  const refreshProjects = useCallback(async () => {
+    try {
+      const data = await projectsApi.getAll();
+      setProjects(data);
+    } catch {}
+  }, []);
+
   const applyProfile = useCallback((data: { id: number; fullName: string; email: string; role: string; emailConfirmed?: boolean }) => {
     setUser({
       id: data.id,
@@ -113,7 +120,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         await authApi.getProfile().then(applyProfile);
       } catch {
-        // сессии нет — остаёмся анонимом
       } finally {
         setAuthReady(true);
       }
@@ -267,22 +273,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const isInCart = (projectId: number) => cart.some(i => i.projectId === projectId);
 
-  const checkout = async (): Promise<string | null> => {
-    try {
-      const order = await ordersApi.create();
-      setCart([]);
-      await refreshOrders();
-      return order.orderNumber;
-    } catch {
-      return null;
-    }
-  };
-
   return (
     <AppContext.Provider value={{
       cart, user, orders, projects, projectsLoaded, authReady,
       addToCart, removeFromCart, isInCart,
-      login, register, logout, checkout,
+      login, register, logout, refreshProjects,
       refreshOrders, refreshCart,
       favoriteIds, isFavorite, toggleFavorite,
     }}>

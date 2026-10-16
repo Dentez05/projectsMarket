@@ -190,8 +190,7 @@ namespace Auth.API.Controllers
             Response.Cookies.Delete(RefreshCookieName, new CookieOptions { Path = RefreshCookiePath });
         }
 
-        // Защита от CSRF: cookie выставляется с SameSite=Lax — браузер не пришлёт её
-        // в запросах с чужого origin (эндпоинты refresh/logout только POST).
+        // SameSite=Lax: браузер не пришлёт refresh-cookie в запросах с чужого origin (refresh/logout — POST)
 
         private string GetIp()
         {

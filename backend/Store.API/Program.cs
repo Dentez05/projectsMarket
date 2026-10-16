@@ -43,6 +43,7 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICartService, CartService>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IPromoCodeService, PromoCodeService>();
 
 // JWT-ключ обязателен: без fallback-секрета в коде
 var jwtKey = builder.Configuration["Jwt:Key"];
@@ -144,14 +145,12 @@ var app = builder.Build();
 app.UseForwardedHeaders();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
-// Auto-migration on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<StoreDbContext>();
     db.Database.Migrate();
 
-    // Перенос уже загруженных проектных файлов в приватное хранилище
-    // (старые записи лежат в wwwroot/uploads и отдаются статикой без авторизации)
+    // Старые файлы из wwwroot/uploads переносим в приватное хранилище (отдавались статикой без авторизации)
     var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
     var legacyFiles = db.ProjectFiles
         .Where(f => f.FilePath.StartsWith("/uploads/"))
@@ -207,7 +206,6 @@ app.MapGet("/health", async (StoreDbContext db) =>
     return result;
 });
 
-// sitemap.xml: главная, каталог, все Active-проекты (публичный, без auth)
 app.MapGet("/sitemap.xml", async (StoreDbContext db, IConfiguration config) =>
 {
     var baseUrl = (config["App:BaseUrl"] ?? "http://localhost:5010").TrimEnd('/');

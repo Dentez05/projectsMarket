@@ -3,9 +3,9 @@ import { LogOut, Download, Package, User, Mail, CreditCard, MailWarning, CheckCi
 import { useApp } from '../store/AppContext';
 import { paymentsApi } from '../api/payments';
 import { authApi } from '../api/auth';
-import { api, fetchWithAuth } from '../api/client';
 import { useState, useEffect } from 'react';
 import Pagination from '../components/Pagination';
+import { downloadOrderFiles } from '../utils/downloadOrder';
 import { useSeo } from '../utils/seo';
 
 const PAGE_SIZE = 10;
@@ -69,48 +69,6 @@ export default function Profile() {
       window.open(confirmationUrl, '_blank');
     } catch {}
     setPayingId(null);
-  };
-
-  const getFileNameFromCD = (cd: string, fallback: string): string => {
-    const star = cd.match(/filename\*=UTF-8''([^;\n]+)/i);
-    if (star) return decodeURIComponent(star[1]);
-    const quoted = cd.match(/filename="?([^";\n]+)"?/);
-    if (quoted) return quoted[1];
-    return fallback;
-  };
-
-  const handleDownload = async (orderId: number) => {
-    const res = await fetchWithAuth(`/api/Download/orders/${orderId}`);
-    if (!res.ok) return;
-    const ct = res.headers.get('content-type') || '';
-    const cd = res.headers.get('content-disposition') || '';
-    if (ct.includes('application/json')) {
-      const files = await res.clone().json();
-      for (const f of files) {
-        const fileRes = await fetchWithAuth(`/api/Download/files/${f.id}`);
-        if (!fileRes.ok) continue;
-        const fileCd = fileRes.headers.get('content-disposition') || '';
-        const fileBlob = await fileRes.blob();
-        const fileUrl = URL.createObjectURL(fileBlob);
-        const fileA = document.createElement('a');
-        fileA.href = fileUrl;
-        fileA.download = getFileNameFromCD(fileCd, f.originalFileName || `file_${f.id}`);
-        fileA.click();
-        URL.revokeObjectURL(fileUrl);
-      }
-      return;
-    }
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    if (ct.includes('application/zip')) {
-      a.download = getFileNameFromCD(cd, `order_${orderId}_files.zip`);
-    } else {
-      a.download = getFileNameFromCD(cd, `order_${orderId}_files`);
-    }
-    a.click();
-    URL.revokeObjectURL(url);
   };
 
   const handleResendConfirm = async () => {
@@ -190,7 +148,7 @@ export default function Profile() {
                       <div className="flex items-start justify-between gap-3 sm:gap-4">
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 sm:gap-2 mb-0.5 sm:mb-1 flex-wrap">
-                            <span className="font-semibold text-white text-xs sm:text-sm">{order.orderNumber}</span>
+                            <Link to={`/orders/${order.id}`} className="font-semibold text-white text-xs sm:text-sm hover:text-[#f97316] transition-colors">{order.orderNumber}</Link>
                             {s && <span className={`px-2 sm:px-2.5 py-0.5 text-[10px] sm:text-xs font-semibold rounded-full ${s.color}`}>{s.label}</span>}
                           </div>
                           <p className="text-[10px] sm:text-xs text-white/30">{new Date(order.createdAt).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
@@ -212,7 +170,7 @@ export default function Profile() {
                             </button>
                           )}
                           {order.status === 'Delivered' && (
-                            <button onClick={() => handleDownload(order.id)} className="mt-1 sm:mt-1.5 flex items-center gap-1 text-[10px] sm:text-xs text-[#f97316] hover:text-[#ea580c] font-medium transition-colors ml-auto">
+                            <button onClick={() => downloadOrderFiles(order.id)} className="mt-1 sm:mt-1.5 flex items-center gap-1 text-[10px] sm:text-xs text-[#f97316] hover:text-[#ea580c] font-medium transition-colors ml-auto">
                               <Download size={11} className="sm:w-3 sm:h-3" /> Скачать
                             </button>
                           )}

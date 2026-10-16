@@ -11,17 +11,20 @@ namespace Store.API.Services
         private readonly IOrderRepository _orderRepository;
         private readonly ICartRepository _cartRepository;
         private readonly IProjectRepository _projectRepository;
+        private readonly IPromoCodeService _promoService;
         private readonly ILogger<OrderService> _logger;
 
         public OrderService (
             IOrderRepository orderRepository, 
             ICartRepository cartRepository, 
             IProjectRepository projectRepository,
+            IPromoCodeService promoService,
             ILogger<OrderService> logger)
         {
             _orderRepository = orderRepository;
             _cartRepository = cartRepository;
             _projectRepository = projectRepository;
+            _promoService = promoService;
             _logger = logger;
         }
 
@@ -42,23 +45,16 @@ namespace Store.API.Services
 
             if (!string.IsNullOrWhiteSpace(request.PromoCode))
             {
-                var promo = await _orderRepository.GetPromoCodeAsync(request.PromoCode.Trim());
-                if (promo == null || !promo.IsActive)
-                    throw new ArgumentException("Промокод не найден или отключён");
-                if (promo.ExpiresAt != null && promo.ExpiresAt <= DateTime.UtcNow)
-                    throw new ArgumentException("Срок действия промокода истёк");
-                if (promo.MaxUses != null && promo.UsedCount >= promo.MaxUses)
-                    throw new ArgumentException("Промокод больше не действует (лимит использован)");
-                if (promo.MinOrderAmount != null && subtotal < promo.MinOrderAmount)
-                    throw new ArgumentException(
-                        $"Минимальная сумма для этого промокода — {promo.MinOrderAmount.Value:F0} ₽");
+                var promoResult = await _promoService.ValidateAsync(request.PromoCode!, subtotal);
+                if (!promoResult.IsValid)
+                    throw new ArgumentException(promoResult.Error);
 
-                discount = promo.Type == "Percent"
-                    ? Math.Round(subtotal * promo.Value / 100m, 2)
-                    : Math.Min(promo.Value, subtotal);
+                var promo = await _orderRepository.GetPromoCodeAsync(promoResult.Code!);
+                if (promo != null)
+                    promo.UsedCount++;
 
-                promo.UsedCount++;
-                promoCodeApplied = promo.Code;
+                discount = promoResult.Discount;
+                promoCodeApplied = promoResult.Code;
             }
 
             var totalAmount = Math.Max(subtotal - discount, 0m);

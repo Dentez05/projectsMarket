@@ -17,7 +17,6 @@ namespace Store.API.Controllers
             _context = context;
         }
 
-        // Общая сводка: заказы, выручка, пользователи, проекты
         [HttpGet("summary")]
         public async Task<IActionResult> GetSummary()
         {
@@ -46,7 +45,6 @@ namespace Store.API.Controllers
             });
         }
 
-        // Динамика продаж за N дней (только Delivered)
         [HttpGet("sales")]
         public async Task<IActionResult> GetSales([FromQuery] int days = 30)
         {
@@ -58,7 +56,6 @@ namespace Store.API.Controllers
                 .Select(o => new { o.CreatedAt, o.TotalAmount })
                 .ToListAsync();
 
-            // Группировка по дням (UTC)
             var byDay = orders
                 .GroupBy(o => o.CreatedAt.Date)
                 .ToDictionary(g => g.Key, g => new
@@ -84,7 +81,6 @@ namespace Store.API.Controllers
             return Ok(new { days, series });
         }
 
-        // Топ проектов по выручке/продажам
         [HttpGet("top-projects")]
         public async Task<IActionResult> GetTopProjects([FromQuery] int limit = 10)
         {

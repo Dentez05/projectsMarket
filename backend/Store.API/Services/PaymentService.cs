@@ -33,7 +33,7 @@ namespace Store.API.Services
             return info?.Status ?? "unknown";
         }
 
-        public async Task<PaymentVerificationResult?> GetPaymentInfoAsync(string paymentId)
+        private async Task<PaymentVerificationResult?> GetPaymentInfoAsync(string paymentId)
         {
             var shopId = _configuration["YooKassa:ShopId"];
             var secretKey = _configuration["YooKassa:SecretKey"];

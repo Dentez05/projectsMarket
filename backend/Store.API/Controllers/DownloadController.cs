@@ -69,7 +69,6 @@ namespace Store.API.Controllers
                 return File(fileBytes, contentType, fileName);
             }
 
-            // Multiple files - bundle into zip
             using var zipStream = new MemoryStream();
             using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
             {
@@ -106,7 +105,6 @@ namespace Store.API.Controllers
             if (file == null)
                 return NotFound();
 
-            // Check if user has paid for this project
             var hasPaid = await _context.Orders
                 .AnyAsync(o => o.UserId == userId &&
                               o.Status == "Delivered" &&

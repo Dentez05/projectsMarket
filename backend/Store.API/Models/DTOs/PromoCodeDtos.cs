@@ -44,4 +44,13 @@ namespace Store.API.Models.DTOs
         public DateTime? ExpiresAt { get; set; }
         public bool? IsActive { get; set; }
     }
+
+    public class ValidatePromoRequest
+    {
+        [Required(ErrorMessage = "Код обязателен")]
+        [MaxLength(50)]
+        public string Code { get; set; } = null!;
+
+        public decimal Subtotal { get; set; }
+    }
 }

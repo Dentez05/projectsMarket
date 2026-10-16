@@ -6,4 +6,7 @@ export const paymentsApi = {
 
   checkOrderStatus: (orderId: number) =>
     api.get<{ status: string }>(`/Payments/check/${orderId}`),
+
+  getSuccess: (orderId: number) =>
+    api.get<{ message: string; orderId: number; status: string }>(`/Payments/success?orderId=${orderId}`),
 };

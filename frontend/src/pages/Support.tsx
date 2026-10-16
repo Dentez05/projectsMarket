@@ -204,7 +204,6 @@ export default function Support() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
 
           <div className="lg:col-span-2 space-y-6 sm:space-y-8">
-            {/* FAQ */}
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-white mb-4">Частые вопросы</h2>
               <div className="space-y-2">
@@ -227,7 +226,6 @@ export default function Support() {
               </div>
             </div>
 
-            {/* Contact form */}
             <div>
               <h2 className="text-lg sm:text-xl font-bold text-white mb-4">Написать в поддержку</h2>
               {!authReady ? (
@@ -284,14 +282,12 @@ export default function Support() {
               )}
             </div>
 
-            {/* My tickets / chat */}
             {user && ticketsLoaded && (activeTicket || tickets.length > 0) && (
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-white mb-4">Мои обращения</h2>
 
                 {activeTicket && status ? (
                   <div className="bg-[#232a3b] rounded-xl border border-[#2e3548] overflow-hidden">
-                    {/* Chat header */}
                     <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-[#2e3548] bg-[#2a3244]">
                       <div className="flex items-center gap-3 min-w-0">
                         <button
@@ -313,7 +309,6 @@ export default function Support() {
                       </span>
                     </div>
 
-                    {/* Messages */}
                     <div className="px-3 sm:px-4 py-4 space-y-3 h-[340px] sm:h-[400px] overflow-y-auto">
                       {activeTicket.messages?.map(m => {
                         const mine = m.senderRole === 'User';
@@ -336,7 +331,6 @@ export default function Support() {
                       <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Composer */}
                     <div className="border-t border-[#2e3548] p-3 sm:p-4">
                       {activeTicket.status === 'Closed' ? (
                         <p className="text-xs text-white/40 flex items-center gap-2 py-1">
@@ -413,7 +407,6 @@ export default function Support() {
             )}
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-4">
             <div className="bg-[#232a3b] rounded-xl border border-[#2e3548] p-5">
               <h3 className="text-sm font-semibold text-white mb-4">Другие способы связи</h3>

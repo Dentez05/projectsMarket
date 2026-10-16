@@ -5,23 +5,34 @@ using Microsoft.EntityFrameworkCore;
 using Store.API.Data;
 using Store.API.Models.DTOs;
 using Store.API.Models.Entities;
+using Store.API.Services;
 
 namespace Store.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
     public class PromoCodesController : ControllerBase
     {
         private readonly StoreDbContext _context;
+        private readonly IPromoCodeService _promoService;
         private readonly ILogger<PromoCodesController> _logger;
 
-        public PromoCodesController(StoreDbContext context, ILogger<PromoCodesController> logger)
+        public PromoCodesController(StoreDbContext context, IPromoCodeService promoService, ILogger<PromoCodesController> logger)
         {
             _context = context;
+            _promoService = promoService;
             _logger = logger;
         }
 
+        [AllowAnonymous]
+        [HttpPost("validate")]
+        public async Task<IActionResult> Validate([FromBody] ValidatePromoRequest request)
+        {
+            var result = await _promoService.ValidateAsync(request.Code, request.Subtotal);
+            return Ok(result);
+        }
+
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
@@ -45,6 +56,7 @@ namespace Store.API.Controllers
             return Ok(codes);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] CreatePromoCodeRequest request)
         {
@@ -77,6 +89,7 @@ namespace Store.API.Controllers
             return Ok(MapToResponse(promo));
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdatePromoCodeRequest request)
         {
@@ -105,6 +118,7 @@ namespace Store.API.Controllers
             return Ok(MapToResponse(promo));
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {

@@ -168,8 +168,7 @@ using (var scope = app.Services.CreateScope())
             db.Users.Add(admin);
             db.SaveChanges();
 
-            // Сгенерированный пароль показываем ровно один раз, иначе войти невозможно.
-            // Заданный в .env оператор и так знает.
+            // Сгенерированный пароль показываем один раз — входить иначе нечем
             Console.WriteLine("==========================================");
             Console.WriteLine("Создан администратор:");
             Console.WriteLine($"Email: {adminEmail}");

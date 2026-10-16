@@ -51,7 +51,6 @@ export default function Home() {
 
   return (
     <div>
-      {/* Hero */}
       <section className="relative overflow-hidden pt-20 pb-10 sm:pt-24 sm:pb-16 lg:pt-32 lg:pb-24" style={{ background: 'linear-gradient(135deg, #0f1219 0%, #1a1f2e 50%, #0f1219 100%)' }}>
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 right-0 w-[300px] h-[300px] sm:w-[500px] sm:h-[500px] bg-[#f97316]/8 rounded-full blur-3xl" />
@@ -101,7 +100,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Popular projects */}
       <section className="py-10 sm:py-16 lg:py-20 section-surface">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
@@ -125,7 +123,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Features */}
       <section id="features" className="py-10 sm:py-16 lg:py-20 section-dark">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
@@ -148,7 +145,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How it works */}
       <section id="how-it-works" className="py-10 sm:py-16 lg:py-20 section-surface relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/4 w-[300px] h-[300px] bg-[#f97316]/3 rounded-full blur-[80px]" />
@@ -197,7 +193,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* New projects */}
       <section className="py-10 sm:py-16 lg:py-20 section-surface">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
@@ -221,7 +216,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA */}
       <section className="py-10 sm:py-16 lg:py-20 section-dark relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[200px] sm:w-[600px] sm:h-[300px] bg-[#f97316]/5 rounded-full blur-3xl" />
